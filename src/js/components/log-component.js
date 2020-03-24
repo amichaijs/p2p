@@ -17,7 +17,7 @@ class LogComponent extends MdcComponent {
     }
 
     afterRender() {
-        this.elements.log = this.shadowRoot.querySelector('#log');
+        
     }
 
     log(msg, className = "info") {

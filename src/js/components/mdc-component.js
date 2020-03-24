@@ -1,11 +1,12 @@
 let mdcCss = new CSSStyleSheet()
-mdcCss.replace( "@import url(style/material-components-web.min.css)");
+mdcCss.replace( "@import url(style/materialize.min.css)");
 
 let defineComponent = function(name, componentClass) {
     let stylesheets = [mdcCss];
     if (componentClass.style) {
         let innerCss = new CSSStyleSheet();
-        innerCss.replace(componentClass.style);
+        let styleWithoutTags = componentClass.style.replace(/<\/?style>/g, '');
+        innerCss.replace(styleWithoutTags);
         stylesheets.push(innerCss);
     }
 
@@ -27,12 +28,20 @@ class MdcComponent extends HTMLElement {
         this.attachShadow({ mode : 'open' });
         this.shadowRoot.innerHTML = this.constructor.template;
         this.shadowRoot.adoptedStyleSheets = this.constructor.stylesheets;
+        this.loadElements();
         this.afterRender();
     }
 
     afterRender() {
 
     }
+
+    loadElements() {  
+        this.shadowRoot.querySelectorAll('[id]').forEach(el => {
+            this.elements[el.id] = el;
+        })
+    }
+
 }
 
 
