@@ -99,7 +99,7 @@ class MainComponent extends MdcComponent {
             return;
         } 
 
-        var conn = peer.connect(peerId);
+        var conn = this.peer.connect(peerId);
         this.addPeerConnection(conn, {
             reliable: true,
             metadata: {
