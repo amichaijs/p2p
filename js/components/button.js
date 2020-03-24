@@ -12,7 +12,7 @@ class MdcButton extends MdcComponent {
     }
 
     afterRender() {
-        new mdc.ripple.MDCRipple(this.button);
+        //new mdc.ripple.MDCRipple(this.button);
     }
 }
 

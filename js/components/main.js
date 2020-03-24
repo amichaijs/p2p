@@ -87,7 +87,7 @@ class MainComponent extends MdcComponent {
     connectServer() {
         this.disconnectServer();
         this.peer = new Peer(/*{key: 'lwjd5qra8257b9'}*/);
-        this.peer.on('open', id => onConnectedToPeerServer(id));
+        this.peer.on('open', id => this.onConnectedToPeerServer(id));
         this.peer.on('error', ex => { console.error(ex); this.logError(ex.stack) });
         this.peer.on('disconnected', () => this.onDisconnectServer());
         this.peer.on('connection', (conn) => this.onIncomingPeerConnection(conn));

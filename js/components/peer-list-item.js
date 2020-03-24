@@ -16,4 +16,4 @@ class PeerListItem extends MdcComponent {
     }
 }
 
-defineComponent('mdc-button', MdcButton);
+defineComponent('peer-list-item', PeerListItem);
