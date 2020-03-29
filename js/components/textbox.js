@@ -4,8 +4,8 @@ import { requestId } from '../helpers.js'
 class MdcTextBox extends MdcComponent {
     static template = html`
     <div class="input-field">
-        <input id="input" type="text" placeholder=" ">
-        <label id="title" for="input"></label>
+        <input id="input" type="text" :="value" placeholder=" ">
+        <label id="title" for="input" :="label"></label>
     </div>`
 
 // placeholder= " " important for  :not(:placeholder-shown)
@@ -23,29 +23,41 @@ class MdcTextBox extends MdcComponent {
         color:rgba(98,0,238,.87);
     }`
 
+    static props = {
+        label: null,
+        value: null,
+        size: null
+    }
+
     constructor() {
         super();
     }
 
+    get size() {
+        return this.elements.input.size;
+    }
+
+    set size(value) {
+        this.elements.input.size = value;
+    }
+
     afterRender() {
-        this.update('label', this.getAttribute('label'))
-        this.update('value', this.getAttribute('value'))
     }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        this.update(name, newValue);
-    }
-
-    update(name, value) {
+    /*update(name, newValue, oldValue) {
         switch (name) {
             case 'label':
-                this.setLabel(value);
+                this.setLabel(newValue);
                 break;
             case 'value':
-                this.setValue(value);
+                this.setValue(newValue);
+            case 'size':
+                if (newValue) {
+                    this.elements.input.size = newValue;
+                }
                 break;
         }
-    }
+    }*/
 
     getLabel() {
         return this.elements.title.innerHTML;

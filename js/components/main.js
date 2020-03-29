@@ -1,14 +1,28 @@
 import { MdcComponent, defineComponent } from './mdc-component.js'
+import { generateRandomId } from '../helpers.js'
+
+/*
+    - create random "UserId" for each machine. it should persists until browser close.
+    - the peer ids from STUN server are temporary and may change. thus each peer need to update on peerId change, using the UserId in metadata
+
+*/
+
+const ConnectionType = {
+    Main: 0,
+    Audio: 1,
+    Video:2,
+
+}
 
 class MainComponent extends MdcComponent {
     static template = html`
     <div>
-        <div class="your-id-container">
-            <mdc-textbox id="txtId" label="Your Id" ></mdc-textbox>
+        <div class="flex-row-center">
+            <mdc-textbox id="txtId" label="Your Id"  size="16" ></mdc-textbox>
             <mdc-button id="btnGetId">Get New Id</mdc-button>
         </div>
-        <div class="peer-id-container">
-            <mdc-textbox id="peerId" label="Peer Id" ></mdc-textbox>
+        <div class="flex-row-center">
+            <mdc-textbox id="peerId" label="Peer Id" size="16" ></mdc-textbox>
             <mdc-button id="btnConnectPeer">Connect peer</mdc-button>
         </div>
         <div class="peer-list-container">
@@ -19,9 +33,14 @@ class MainComponent extends MdcComponent {
     `
     static style = html`
         <style>
-            .your-id-container {
+            .flex-row-center {
                 display: flex;
                 align-items: center;
+                min-width:50%;
+            }
+
+            .flex-row-center * {
+                margin-right: 10px;
             }
         </style>
     `
@@ -46,19 +65,23 @@ class MainComponent extends MdcComponent {
         this.elements.logComponent.logError(msg)
     }
 
-    disconnectServer() {
-        if (this.peer && !this.peer.disconnected) {
+    clearPeer() {
+        if (this.peer && this.peer) {
+            this.peer.recreate = false;
             this.peer.disconnect();
         }
     }
 
     onDisconnectServer() {
-
+        if (this.peer && !this.peer.destroyed) {
+            this.peer.reconnect();
+        }
     }
 
     onConnectedToPeerServer(id) {
+        this.myId = id;
         this.logInfo(`opened: your id ${id}`)
-        this.elements.txtId.setValue(id);
+        this.elements.txtId.setValue(this.myId);
     }
 
     onIncomingPeerConnection(conn) {
@@ -75,22 +98,45 @@ class MainComponent extends MdcComponent {
         connectionsMap.set(conn.label, conn);
         this.elements.peerList.addPeer(conn);
 
-        conn.on('data', (data) => {
-            this.logInfo(data);
-        });
-        conn.on('open', () => {
-            alert('someone connect!')
-            conn.send('hello!');
-        });
+        switch (conn.metadata.type) {
+            case ConnectionType.Main:
+                conn.on('data', ({ message }) => {
+                    this.logInfo(message);
+                });
+                conn.on('open', () => {
+                    alert('someone connect!')
+                    conn.send({ message: 'hello!'});
+                });
+                break;
+            default:
+                this.logError('oh no');
+        }
     }
  
     connectServer() {
-        this.disconnectServer();
-        this.peer = new Peer(/*{key: 'lwjd5qra8257b9'}*/);
-        this.peer.on('open', id => this.onConnectedToPeerServer(id));
-        this.peer.on('error', ex => { console.error(ex); this.logError(ex.stack) });
-        this.peer.on('disconnected', () => this.onDisconnectServer());
-        this.peer.on('connection', (conn) => this.onIncomingPeerConnection(conn));
+        this.clearPeer();
+        let peer = new Peer(generateRandomId());// /*{key: 'lwjd5qra8257b9'}*/);
+        peer.recreate = true;
+        peer.on('open', id => this.onConnectedToPeerServer(id));
+        peer.on('error', ex => { 
+            console.error(ex); 
+            this.logError(ex.stack); setTimeout(() => {
+            this.onDisconnectServer();
+        }, 2000); });
+        peer.on('disconnected', () => { 
+            this.logInfo('disconnected!');
+            this.onDisconnectServer() } );
+        peer.on('connection', (conn) => this.onIncomingPeerConnection(conn));
+        peer.on('destroy', () =>  { 
+            this.logError('destruction!!');
+            if (peer.recreate) {
+                setTimeout(() => {
+                    this.connectServer(); 
+                },5000); 
+            } 
+        });
+
+        this.peer = peer;
     }
 
     connectPeer() {
@@ -103,8 +149,10 @@ class MainComponent extends MdcComponent {
         this.addPeerConnection(conn, {
             reliable: true,
             metadata: {
-                name: 'tba'
-            }
+                lol: 'lol',
+                type: ConnectionType.Main,
+                serialization: 'json'
+            },
         });
     }
 
