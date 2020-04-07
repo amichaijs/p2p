@@ -1,9 +1,11 @@
 import { MdcComponent, defineComponent } from './mdc-component.js'
 
+let template = html`
+<ul id="list" class="collection">
+`
+
 class PeerList extends MdcComponent {
-    static template = html`
-        <ul id="list" class="collection">
-    `
+ 
 
     constructor() {
         super();
@@ -23,4 +25,4 @@ class PeerList extends MdcComponent {
     }
 }
 
-defineComponent('peer-list', PeerList);
+defineComponent('peer-list', PeerList, { template });

@@ -1,22 +1,51 @@
 class P2pConnection {
-    constructor(localId, remoteId, signalingManager) {
+    constructor(localId, remoteId, signalingManager, logInfo, logError) {
         this.localId = localId;
         this.remoteId = remoteId;
         this.rtcPeerConnection = null;
         this.signalingManager = signalingManager;
+        this.logInfo = logInfo;
+        this.logError = logError;
+
     }
 
     async connect() {
         try {   
-            let rtcPeerConnection = new RTCPeerConnection();
-            this.rtcPeerConnection = rtcPeerConnection;
+            let descResolve =  null;
+            let descReject = null;
+    
+            this.descPromise = new Promise((resolve, reject) => {
+                descResolve = resolve;
+                descReject = reject;
+            });
+    
+            this.descPromise.resolve = descResolve;
+            this.descPromise.reject = descReject;
 
-            await addIceCandidate(rtcPeerConnection);
 
+            this.logInfo(`start connect`);
+            this.initConnection();
+
+            let icePromise = this.addIceCandidate(this.rtcPeerConnection);
+
+
+            this.logInfo(`adding remote channel`);
+            this.rtcPeerConnection.createDataChannel('chat');
+
+            this.logInfo(`adding creating offer`);
             let offer = await this.rtcPeerConnection.createOffer(); // can contain constraints, like to support audio, video etc
+            this.logInfo(`set local desc`);
             await this.rtcPeerConnection.setLocalDescription(offer);
-            let remoteAnswer = await this.signalingManager.sendOffer(remoteId, offer); // remote receive offer, set it as remotedesc, then returns answer
+            this.logInfo(`send offer by signaling server`);
+            let remoteAnswer = await this.signalingManager.sendOffer(this.remoteId, offer); // remote receive offer, set it as remotedesc, then returns answer
+            this.logInfo(`received answer.. setting remote desc`, remoteAnswer);
             await this.rtcPeerConnection.setRemoteDescription(remoteAnswer);
+            this.descPromise.resolve();
+            await icePromise;
+            this.logInfo(`adding ice candidate`);
+            
+
+            this.logInfo(`finish connection`);
         }
         catch (ex) {
             console.error(ex);
@@ -24,18 +53,51 @@ class P2pConnection {
     }
 
     async connectFromOffer(incomingOffer) {
+        this.logInfo(`incoming offer`, incomingOffer);
         this.initConnection();
-        await this.addIceCandidate(rtcPeerConnection);
 
+        let descResolve =  null;
+        let descReject = null;
+
+        this.descPromise = new Promise((resolve, reject) => {
+            descResolve = resolve;
+            descReject = reject;
+        });
+
+        this.descPromise.resolve = descResolve;
+        this.descPromise.reject = descReject;
+
+        this.logInfo(`adding ice candidate`);
+        let icePromise = this.addIceCandidate(this.rtcPeerConnection);
+
+        this.logInfo(`setting remote desc`);
         await this.rtcPeerConnection.setRemoteDescription(incomingOffer)
+        this.logInfo(`creating answer`);
         let answer = await this.rtcPeerConnection.createAnswer();
+        this.logInfo(`creating set local desc`);
         await this.rtcPeerConnection.setLocalDescription(answer);
-        await this.signalingManager.sendAnswer(peerId, answer);
+        this.logInfo(`send answer by remote desc`);
+        await icePromise;
+        await this.signalingManager.sendAnswer(this.remoteId, answer);
+        this.logInfo(`finish connection`);
     }
 
     initConnection() {
-        let rtcPeerConnection = new RTCPeerConnection();
+        let server = { urls: "stun:stun.l.google.com:19302" };
+
+        let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server,  /*{ url: 'turn:homeoturn.bistri.com:80', username: 'homeo', credential: 'homeo' }*/] });
         //TODO: if exists: in case of reconnect?
+        rtcPeerConnection.onaddstream = e => {
+            console.info('streammm');  v2.srcObject = e.stream;
+        }
+            
+        rtcPeerConnection.ondatachannel = e => {
+            console.info('data channelll');
+            let channel = e.channel;
+            channel.onopen = () => this.logInfo("Chat!");
+            channel.onmessage = e => this.logInfo(e.data);
+        };
+
         this.rtcPeerConnection = rtcPeerConnection;
         rtcPeerConnection.onconnectionstatechange = ev => this.onConnectionStateChange(ev); 
         
@@ -57,9 +119,31 @@ class P2pConnection {
         return new Promise((resolve, reject) => {
             rtcPeerConnection.onicecandidate = e => {
                 //tdo whats the point of !e.candidate
-                let candidate = !e.candidate || remoteConnection.addIceCandidate(e.candidate).catch(handleAddCandidateError);
-                resolve(candidate);
-                return candidate;
+               this.logInfo(`e.candidate ${JSON.stringify(e.candidate)}`)
+                // let candidate = !e.candidate || this.rtcPeerConnection.addIceCandidate(e.candidate).catch(console.error);
+                try {
+                    if (!e.candidate) {
+                        // seems like not needed
+                        //let candidate = this.rtcPeerConnection.addIceCandidate(e.candidate);
+                        resolve();
+                    }
+                    else {
+                        if (this.descPromise)
+                        {
+                            this.descPromise.then(() =>  {
+                                console.info('ice crush!')
+                                let candidate = this.rtcPeerConnection.addIceCandidate(e.candidate);
+                            })
+                        }
+                        
+                    }
+                }
+                catch (ex) {
+                    console.error(ex);
+                    reject(ex);
+                }
+  
+                return e.candidate;
             }
         })
     }

@@ -32,11 +32,10 @@ class SignalingManager {
 
     _connect() {
         this._localIdPromise = new Promise((resolve, reject) => {
-            this.addPromise('newId', { promise: this._localIdPromise, resolve, reject, expectedResultType: MessageType.NewUserId });
+            this.addPromise('newId', { resolve, reject, expectedResultType: MessageType.NewUserId });
         });
 
-
-        return new Promise(function(resolve, reject) {
+        return new Promise((resolve, reject) => {
             let ws = new WebSocket(this.url);
             this.ws = ws;
 
@@ -47,22 +46,39 @@ class SignalingManager {
                 reject(err);
             };
 
-            ws.onmessage = message => this.onMessage(message);
+            ws.onmessage = ev => this.onMessage(ev);
         });
     }
 
-    onMessage(message) {
+    onMessage(ev) {
+        let message = null;
+        try {
+            message = ev.data ? JSON.parse(ev.data) : null;
+        }
+        catch (ex) {
+            console.error(ex);
+        }
+
         let error = null;
         let promiseKey = null;
-        if (!message || !message.type) {
+        if (!message) {
+            error = 'Received Empty message';
+        }
+        else if(message.errorCode) {
+            error = `error from ws: ${message.errorCode}`;
+        }
+        else if (!message || !message.type) {
             error = 'Received Invalid message';
         }
         else if (message.type === MessageType.NewUserId) {
-            this.localId = message.userId;
+            this.localId = message.data;
             promiseKey = 'newId';
         }
-        else if (!message.from) {
-            error =  'No "from" property in message'
+        else if (message.from && message.type == MessageType.Offer) {
+            this.onReceivedOffer(message.from, message.data);
+        }
+        else if (message.from && message.type == MessageType.Answer) {
+            promiseKey = message.from;
         }
         else {
             promiseKey = message.to;
@@ -70,33 +86,35 @@ class SignalingManager {
 
         let request = promiseKey ? this.requests.get(promiseKey) : null;
         if (request) {
-            if (message.errorCode) {
-                request.reject(message);
+            if (error) {
+                request.reject({ message, error });
             }
             else if (message.type !== request.expectedResultType){
                 console.warn(`got unexpected message from ${message.from} of type ${message.type}, expected result type: ${request.expectedResultType}`)
             }
             else {
-                request.resolve(message);
+                request.resolve(message.data);
             }
 
             this.requests.delete(promiseKey);
         }
     }
     
-    addPromise(key, { promise, resolve, reject, expectedResultType }) {
-        this.requests.set(to, promise, resolve, reject, expectedResultType);
+    addPromise(key, promiseDesc) {
+        this.requests.set(key, promiseDesc);
     }
 
     sendAsync = function({ type, to, data, expectedResultType: expectedResultType }) {
         let promise = new Promise((resolve, reject) => {
-            this.addPromise(to, { promise, resolve, reject, expectedResultType: expectedResultType});
-            this.ws.send({ type, to, data});
+            this.addPromise(to, { resolve, reject, expectedResultType: expectedResultType});
+            this.ws.send(JSON.stringify({ type, to, data}));
         });
+
+        return promise;
     }
     
     async sendOffer(peerId, offer) {
-        return this.sendAsync({ type: MessageType.Offer, to: peerId, data: offer, resultType: MessageType.Answer });
+        return this.sendAsync({ type: MessageType.Offer, to: peerId, data: offer, expectedResultType: MessageType.Answer });
     }
 
     async sendAnswer(peerId, answer) {
@@ -108,10 +126,8 @@ class SignalingManager {
     }
 
     async getLocalId() {
-        //TODO: await new localid, since u cant get id instantly on new WS
-        if (this.ws.readyState === WebSocket.OPEN && this.localId) {
-            
-        }
+        await this._localIdPromise;
+        return this.localId;
     }
 }
 

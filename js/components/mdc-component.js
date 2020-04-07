@@ -1,8 +1,12 @@
 let mdcCss = new CSSStyleSheet()
 mdcCss.replace( "@import url(style/materialize.min.css)");
 
-let defineComponent = function(name, componentClass) {
+let defineComponent = function(name, componentClass, { template = null, style = null, props = null }) {
     let stylesheets = [mdcCss];
+    componentClass.template = template;
+    componentClass.style = style;
+    componentClass.props = props;
+
     if (componentClass.style) {
         let innerCss = new CSSStyleSheet();
         let styleWithoutTags = componentClass.style.replace(/<\/?style>/g, '');
@@ -58,8 +62,6 @@ let attachSetValueMethod = (el) => {
 }
 
 class MdcComponent extends HTMLElement {
-    static template = '';
-
     constructor() {
         super();
         this.elements = {};
@@ -83,7 +85,10 @@ class MdcComponent extends HTMLElement {
     loadElements() {  
         this.shadowRoot.querySelectorAll('[id]').forEach(el => {
             this.elements[el.id] = el;
-            attachSetValueMethod(el);
+            if (!el.setValue) {
+                attachSetValueMethod(el);
+            }
+            
         })
     }
 

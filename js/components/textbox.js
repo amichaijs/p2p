@@ -1,34 +1,36 @@
 import { MdcComponent, defineComponent } from './mdc-component.js'
 import { requestId } from '../helpers.js'
 
+
+let props = {
+    label: null,
+    value: null,
+    size: null
+}
+
+let template = html`
+<div class="input-field">
+    <input id="input" type="text" :="value" placeholder=" ">
+    <label id="title" for="input" :="label"></label>
+</div>`
+
+let style =
+`.input-field label {
+    transition: transform linear 200ms;
+}
+
+.input-field input:not(:placeholder-shown) + label,
+.input-field input:focus + label {
+    transform: translateY(-1em) scale(0.75);
+}
+
+.input-field input:focus + label {
+    color:rgba(98,0,238,.87);
+}`
+
+
 class MdcTextBox extends MdcComponent {
-    static template = html`
-    <div class="input-field">
-        <input id="input" type="text" :="value" placeholder=" ">
-        <label id="title" for="input" :="label"></label>
-    </div>`
-
 // placeholder= " " important for  :not(:placeholder-shown)
-    static style =
-    `.input-field label {
-        transition: transform linear 200ms;
-    }
-
-    .input-field input:not(:placeholder-shown) + label,
-    .input-field input:focus + label {
-        transform: translateY(-1em) scale(0.75);
-    }
-
-    .input-field input:focus + label {
-        color:rgba(98,0,238,.87);
-    }`
-
-    static props = {
-        label: null,
-        value: null,
-        size: null
-    }
-
     constructor() {
         super();
     }
@@ -77,4 +79,6 @@ class MdcTextBox extends MdcComponent {
 }
 
 
-defineComponent('mdc-textbox', MdcTextBox);
+
+
+defineComponent('mdc-textbox', MdcTextBox, { template, style, props });

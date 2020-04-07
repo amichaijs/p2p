@@ -1,17 +1,17 @@
 import { MdcComponent, defineComponent } from './mdc-component.js'
 
+let template = html`
+<ul id="log"></ul>
+`
+
+let style =
+`#log {
+    width:100%;
+    height:100%;
+}
+`
+
 class LogComponent extends MdcComponent {
-    static template = html`
-    <ul id="log"></ul>
-    `
-
-    static style =
-    `#log {
-        width:100%;
-        height:100%;
-    }
-    `
-
     constructor() {
         super();
     }
@@ -36,4 +36,4 @@ class LogComponent extends MdcComponent {
     }
 }
 
-defineComponent('log-component', LogComponent);
+defineComponent('log-component', LogComponent, { template, style });
