@@ -8,7 +8,7 @@ import { P2pManager } from '../connection/p2pManager.js';
 
 */
 
-const signalServerUrl = "ws://localhost:8080"
+const signalServerUrl = "wss://js-webrtc-server.herokuapp.com"
 
 const ConnectionType = {
     Main: 0,
