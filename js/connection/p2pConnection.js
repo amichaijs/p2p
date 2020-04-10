@@ -173,9 +173,9 @@ class P2pConnection {
         let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
         //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server,  { url: 'turn:homeoturn.bistri.com:80', username: 'homeo', credential: 'homeo' }] });
         //TODO: if exists: in case of reconnect?
-        rtcPeerConnection.ontrack = e => {
+        rtcPeerConnection.ontrack = ev => {
             this.logInfo('streammm');  
-            document.querySelector('main-component').elements.v2.srcObject = e.streams[0];
+            document.querySelector('main-component').elements.v2.srcObject = ev ? ev.streams[0] : null;
         }
             
         rtcPeerConnection.ondatachannel = e => {
@@ -189,7 +189,16 @@ class P2pConnection {
         }
 
         this.media = navigator.mediaDevices.getUserMedia({video:true, audio:true})
-        .then(stream => this.rtcPeerConnection.addStream(document.querySelector('main-component').elements.v1.srcObject = stream)).catch(this.logError);
+        .then(stream => {
+            let tracks = stream.getTracks();
+            for (const track of tracks) {
+                this.rtcPeerConnection.addTrack(track, stream);
+            }
+
+            this.rtcPeerConnection.addStream(document.querySelector('main-component').elements.v1.srcObject = stream);
+            return stream;
+
+        }).catch(this.logError);
 
 
         //rtcPeerConnection.onconnectionstatechange = ev => this.onConnectionStateChange(ev); 
