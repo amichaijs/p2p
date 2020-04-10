@@ -170,13 +170,20 @@ class P2pConnection {
     initConnection() {
         let server = { urls: "stun:stun.l.google.com:19302" };
 
-        let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
-        //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server,  { url: 'turn:homeoturn.bistri.com:80', username: 'homeo', credential: 'homeo' }] });
+        //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
+        let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server,  { url: 'turn:homeoturn.bistri.com:80', username: 'homeo', credential: 'homeo' }] });
         //TODO: if exists: in case of reconnect?
+        rtcPeerConnection.remoteStream = null;
         rtcPeerConnection.ontrack = ev => {
             this.logInfo('streammm');  
-            document.querySelector('main-component').elements.v2.srcObject = ev ? ev.streams[0] : null;
+            if (!rtcPeerConnection.remoteStream) {
+                rtcPeerConnection.remoteStream = new MediaStream(ev.track)
+            }
+            rtcPeerConnection.remoteStream.addTrack(ev.track);
+
+            document.querySelector('main-component').elements.v2.srcObject = rtcPeerConnection.remoteStream;
         }
+        rtcPeerConnection.ontra
             
         rtcPeerConnection.ondatachannel = e => {
             this.logInfo('data channelll');
