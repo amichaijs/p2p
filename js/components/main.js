@@ -30,7 +30,9 @@ let template = html`
     <div class="peer-list-container">
         <peer-list id="peerList"></peer-list>
     </div>
-    <log-component id="logComponent"/>
+    <log-component id="logComponent"></log-component>
+    <video id="v1" height="480" width="640" autoplay muted></video>
+    <video id="v2" height="480" width="640" autoplay></video>
 </div>`;
 
 let style = html`
