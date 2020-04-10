@@ -173,9 +173,9 @@ class P2pConnection {
         let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
         //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server,  { url: 'turn:homeoturn.bistri.com:80', username: 'homeo', credential: 'homeo' }] });
         //TODO: if exists: in case of reconnect?
-        rtcPeerConnection.onaddstream = e => {
+        rtcPeerConnection.ontrack = e => {
             this.logInfo('streammm');  
-            document.querySelector('main-component').elements.v2.srcObject = e.stream //e.streams[0];
+            document.querySelector('main-component').elements.v2.srcObject = e.streams[0];
         }
             
         rtcPeerConnection.ondatachannel = e => {
