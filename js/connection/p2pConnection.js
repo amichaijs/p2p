@@ -173,21 +173,26 @@ class P2pConnection {
             { urls: "stun:stun4.l.google.com:19302" }, 
             { urls: "stun:stun2.l.google.com:19302" }, 
             { urls: "stun:stun3.l.google.com:19302" }, 
+            {
+                url: 'turn:turn.anyfirewall.com:443?transport=tcp',
+                credential: 'webrtc',
+                username: 'webrtc'
+            }
             // { 
             //     urls: 'turn:homeoturn.bistri.com:80',
             //     username: 'homeo',
             //     credential: 'homeo'
             // },
-            {
-                urls: 'turn:192.158.29.39:3478?transport=udp',
-                credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-                username: '28224511:1379330808'
-            },
-            {
-                urls: 'turn:192.158.29.39:3478?transport=tcp',
-                credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-                username: '28224511:1379330808'
-            },
+            // {
+            //     urls: 'turn:192.158.29.39:3478?transport=udp',
+            //     credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+            //     username: '28224511:1379330808'
+            // },
+            // {
+            //     urls: 'turn:192.158.29.39:3478?transport=tcp',
+            //     credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+            //     username: '28224511:1379330808'
+            // },
         ]
 
         //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
