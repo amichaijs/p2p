@@ -173,11 +173,11 @@ class P2pConnection {
             { urls: "stun:stun4.l.google.com:19302" }, 
             { urls: "stun:stun2.l.google.com:19302" }, 
             { urls: "stun:stun3.l.google.com:19302" }, 
-            {
-                url: 'turn:turn.anyfirewall.com:443?transport=tcp',
-                credential: 'webrtc',
-                username: 'webrtc'
-            }
+            // {
+            //     url: 'turn:turn.anyfirewall.com:443?transport=tcp',
+            //     credential: 'webrtc',
+            //     username: 'webrtc'
+            // }
             // { 
             //     urls: 'turn:homeoturn.bistri.com:80',
             //     username: 'homeo',
