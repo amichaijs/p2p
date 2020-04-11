@@ -170,7 +170,11 @@ class P2pConnection {
     initConnection() {
         let iceServers =
         [
-             { urls: "turn:turn02.hubl.in?transport=tcp" }, 
+            {
+                url: 'turn:numb.viagenie.ca',
+                credential: 'muazkh',
+                username: 'webrtc@live.com'
+            },
             // { urls: "stun:stun4.l.google.com:19302" }, 
             // { urls: "stun:stun2.l.google.com:19302" }, 
             // { urls: "stun:stun3.l.google.com:19302" }, 
