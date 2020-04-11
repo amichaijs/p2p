@@ -1,3 +1,5 @@
+import { logger } from '../logger.js'
+
 let MessageType = {
     NewUserId: 1,
     Offer: 2,
@@ -56,7 +58,7 @@ class SignalingManager {
             message = ev.data ? JSON.parse(ev.data) : null;
         }
         catch (ex) {
-            console.error(ex);
+            logger.error(ex);
         }
 
         let error = null;
@@ -122,7 +124,7 @@ class SignalingManager {
     }
 
     async onReceivedOffer(peerId, incomingOffer) {
-        throw 'override me';
+        throw('override me');
     }
 
     async getLocalId() {

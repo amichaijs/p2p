@@ -127,7 +127,6 @@ class MdcComponent extends HTMLElement {
         //what to do with attributes? built in support? like the input tag inside custom element and want ot change its attirbutes
         //should only update elements?
     }
-
 }
 
 

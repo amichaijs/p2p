@@ -1,20 +1,22 @@
 import { SignalingManager  } from './signalingManager.js';
 import { P2pConnection } from './p2pConnection.js'
+import { logger } from '../logger.js'
 
 /**
  * Bridges between p2pConnections and the signalingServer to create and accept connections
  * 1) when connecting to another remote peer
  * 2) when receiving new message / offer from signalingServer to start connection
+ * 3) todo:to support multiple streams, need to change remoteVideo to array. and localVideo set up once
  */
 class P2pManager {
-    constructor(signalServerUrl, logInfo, logError) {
+    constructor(signalServerUrl, localVideoElement, remoteVideoElement) {
         this.signalServerUrl = signalServerUrl;
         this.signalingManager = new SignalingManager(signalServerUrl);
         this.signalingManager.onReceivedOffer = (peerId, incomingOffer) => this.onReceivedOffer(peerId, incomingOffer);
         this.localId = null;
-        this.logInfo = logInfo;
-        this.logError = logError;
         this.connections = new Map();
+        this.localVideoElement = localVideoElement;
+        this.remoteVideoElement = remoteVideoElement;
     }
 
     async connectSignalingServer() {
@@ -23,7 +25,8 @@ class P2pManager {
             this.localId = await this.signalingManager.getLocalId();
         }
         catch (ex) {
-            console.error(ex);
+            logger.error(ex);
+            throw(ex);
         }
 
         return this.localId;
@@ -33,13 +36,14 @@ class P2pManager {
         let p2pConnection = null;
         try {   
             await this.connectSignalingServer();
-            p2pConnection = new P2pConnection(this.localId, remoteId, this.signalingManager, this.logInfo, this.logError);
+            p2pConnection = new P2pConnection(this.localId, remoteId, this.signalingManager, this.localVideoElement, this.remoteVideoElement);
             this.connections.set(remoteId, p2pConnection);
             await p2pConnection.connect();
-            return p2pConnection
+            setTimeout(() => this.onNewConnection(p2pConnection), 0);
         }
         catch (ex) {
-            console.error(ex);
+            logger.error(ex);
+            throw(ex);
         }
 
         return p2pConnection;
@@ -49,22 +53,23 @@ class P2pManager {
         let p2pConnection = null;
         try {   
             await this.connectSignalingServer();
-            p2pConnection = new P2pConnection(this.localId, remoteId, this.signalingManager, this.logInfo, this.logError);
+            p2pConnection = new P2pConnection(this.localId, remoteId, this.signalingManager, this.localVideoElement, this.remoteVideoElement);
             this.connections.set(remoteId, p2pConnection);
-            await p2pConnection.connectFromOffer(incomingOffer)
-            return p2pConnection;
+            await p2pConnection.connectFromOffer(incomingOffer);
+            setTimeout(() => this.onNewConnection(p2pConnection), 0);
         }
         catch (ex) {
-            console.error(ex);
+            logger.error(ex);
+            throw(ex);
         }
 
         return p2pConnection;
     }
+
+    onNewConnection(connection) {
+    }
         
 }
-
-//TODO
-// channels.
 
 export {
     P2pManager

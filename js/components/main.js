@@ -1,6 +1,7 @@
 import { MdcComponent, defineComponent } from './mdc-component.js'
 import { generateRandomId } from '../helpers.js'
 import { P2pManager } from '../connection/p2pManager.js';
+import { logger } from '../logger.js';
 
 /*
     - create random "UserId" for each machine. it should persists until browser close.
@@ -18,33 +19,77 @@ const ConnectionType = {
 }
 
 let template = html`
-<div>
-    <div class="flex-row-center">
-        <mdc-textbox id="txtId" label="Your Id"  size="16" ></mdc-textbox>
-        <mdc-button id="btnGetId">Get New Id</mdc-button>
-    </div>
-    <div class="flex-row-center">
-        <mdc-textbox id="peerId" label="Peer Id" size="16" ></mdc-textbox>
-        <mdc-button id="btnConnectPeer">Connect peer</mdc-button>
-    </div>
-    <div class="peer-list-container">
-        <peer-list id="peerList"></peer-list>
+<div class="main">
+    <div id="welcome">
+        <h3 id="welcomeTitle"  class="loading" >Just a moment...</h3>
+        <mdc-button hidden id="btnStart"></mdc-button>
     </div>
     <log-component id="logComponent"></log-component>
-    <video id="v1" height="480" width="640" autoplay muted></video>
-    <video id="v2" height="480" width="640" autoplay></video>
+    <video hidden id="localVideo" class="video" autoplay muted></video>
+    <video hidden id="remoteVideo" class="video" autoplay></video>
 </div>`;
 
 let style = html`
 <style>
-    .flex-row-center {
-        display: flex;
-        align-items: center;
-        min-width:50%;
+    [hidden] {
+        display:none !important;
     }
 
-    .flex-row-center * {
-        margin-right: 10px;
+    .main {
+        display:flex;
+        flex-flow: column;
+        justify-content:center;
+        position:absolute;
+        top:0;
+        right:0;
+        bottom:0;
+        left:0;
+    }
+
+    #welcome {
+        display:flex;
+        flex-flow: column;
+        justify-content:center;
+        align-items: center;
+        text-align:center;
+        width:100%;
+        height:100%;
+    }
+
+    #welcomeTitle {
+        margin-bottom: 40px;
+    }
+
+    #logComponent {
+        display:none;
+    }
+
+    #localVideo {
+        visibility:hidden;
+        position:absolute;
+    }
+
+    .video {
+        width:100%;
+    }
+
+    .loading {
+        animation: 0.7s linear infinite alternate resize-loop;
+    }
+
+    .fail {
+        transform: rotate(21deg);
+        color: red;
+    }
+
+    @keyframes resize-loop {
+        0% {
+            transform:scale(1.1)
+        }
+
+        100% {
+            transform:scale(1)
+        }
     }
 </style>`;
 
@@ -52,125 +97,105 @@ class MainComponent extends MdcComponent {
     constructor() {
         super();
         this.peers = new Map();
-        this.p2pManager = new P2pManager(signalServerUrl, message => this.logInfo(message), message => this.logError(message));
+        this.p2pManager = null;
+        this.remoteId = new URLSearchParams(window.location.search).get('id');
     }
 
-    afterRender() {
+    isFromInvite() {
+        return !!this.remoteId;
+    }
+
+    async afterRender() {
         this.loadElements();
-        this.connectServer();
-        this.elements.btnGetId.addEventListener("click", () => this.connectServer());
-        this.elements.btnConnectPeer.addEventListener("click", () => this.connectPeer())
-    }
-
-    logInfo(msg) {
-        this.elements.logComponent.logInfo(msg)
-    }
-
-    logError(msg) {
-        this.elements.logComponent.logError(msg)
-    }
-
-    clearPeer() {
-        if (this.peer && this.peer) {
-            this.peer.recreate = false;
-            this.peer.disconnect();
+        logger.onLog(() => this.onLog);
+        this.initP2pManager();
+        try {
+            this.connectSignalingPromise = await this.connectServer();
+            this.initWelcome();
+        }
+        catch(ex) {
+            logger.error(ex);
+            this.elements.welcomeTitle.classList.remove('loading');
+            this.elements.welcomeTitle.classList.add('fail');
+            this.elements.welcomeTitle.setValue('Ouw something went wrong.. :( refresh?');
         }
     }
 
-    onDisconnectServer() {
-        if (this.peer && !this.peer.destroyed) {
-            this.peer.reconnect();
+    initWelcome() {
+        let welcomeTitle;
+        let welcomeBtnTitle;
+        let buttonListener;
+
+        if (this.isFromInvite()) {
+            welcomeTitle = 'You got a call!';
+            welcomeBtnTitle = 'Answer!'
+            buttonListener = () => this.connectPeer();
         }
+        else {
+            welcomeTitle = 'Copy link to your peer!';
+            welcomeBtnTitle = 'Copy Link!'
+            buttonListener = () => this.addPeerLinkToClipboard();
+        }
+
+        this.elements.welcomeTitle.classList.remove('loading');
+        this.elements.welcomeTitle.setValue(welcomeTitle)
+        this.elements.btnStart.setValue(welcomeBtnTitle)
+
+        this.elements.btnStart.addEventListener("click", buttonListener);
+        this.elements.btnStart.hidden = false;
     }
 
-    onIncomingPeerConnection(conn) {
-        this.addPeerConnection(conn);
+    async addPeerLinkToClipboard() {
+        let url = `${window.location.href.split("?")[0]}?id=${this.localId}`
+        navigator.clipboard.writeText(url);
+        this.elements.btnStart.setValue('Copied!')
     }
 
-    addPeerConnection(conn) {
-        let connectionsMap = this.peers.get(conn.peer);
-        if (!connectionsMap) {
-            connectionsMap = new Map();
-            this.peers.set(conn.peer, connectionsMap);
-        }
-        
-        connectionsMap.set(conn.label, conn);
-        this.elements.peerList.addPeer(conn);
+    initP2pManager() {
+        this.p2pManager = new P2pManager(signalServerUrl);
+        this.p2pManager.localVideoElement = this.elements.localVideo;
+        this.p2pManager.remoteVideoElement = this.elements.remoteVideo;
+        this.p2pManager.onNewConnection = () => {
+            this.elements.welcome.hidden = true;
 
-        switch (conn.metadata.type) {
-            case ConnectionType.Main:
-                conn.on('data', ({ message }) => {
-                    this.logInfo(message);
-                });
-                conn.on('open', () => {
-                    alert('someone connect!')
-                    conn.send({ message: 'hello!'});
-                });
-                break;
-            default:
-                this.logError('oh no');
+            this.elements.localVideo.hidden = false;
+            this.elements.remoteVideo.hidden = false;
+
+            this.elements.localVideo.onloadedmetadata = () => {
+                this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
+            }
+        };
+    }
+
+    onLog(msg, level) {
+        if (level == 'error') {
+            this.elements.logComponent.logError(msg);
         }
+        else {
+            this.elements.logComponent.logInfo(msg);
+        }     
+    }
+
+    async answerCall() { 
+        await this.connectSignalingPromise;
+        await this.requestFullscreen().catch(logger.error);
+        await this.connectPeer();
     }
 
     async connectServer() {
         let localId = await this.p2pManager.connectSignalingServer();
         this.localId = localId;
-        this.logInfo(`opened: your id ${localId}`)
-        this.elements.txtId.setValue(this.localId);
+        logger.info(`opened: your id ${localId}`)
     }
 
     async connectPeer() {
-        let peerId = this.elements.peerId.getValue();
-        if (!peerId) {
+        if (!this.remoteId) {
             return;
         } 
 
-        let res = await this.p2pManager.connectPeer(peerId);
+        let res = await this.p2pManager.connectPeer(this.remoteId);
     }
- 
-    // connectServer() {
-    //     this.clearPeer();
-    //     let peer = new Peer(generateRandomId());// /*{key: 'lwjd5qra8257b9'}*/);
-    //     peer.recreate = true;
-    //     peer.on('open', id => this.onConnectedToPeerServer(id));
-    //     peer.on('error', ex => { 
-    //         console.error(ex); 
-    //         this.logError(ex.stack); setTimeout(() => {
-    //         this.onDisconnectServer();
-    //     }, 2000); });
-    //     peer.on('disconnected', () => { 
-    //         this.logInfo('disconnected!');
-    //         this.onDisconnectServer() } );
-    //     peer.on('connection', (conn) => this.onIncomingPeerConnection(conn));
-    //     peer.on('destroy', () =>  { 
-    //         this.logError('destruction!!');
-    //         if (peer.recreate) {
-    //             setTimeout(() => {
-    //                 this.connectServer(); 
-    //             },5000); 
-    //         } 
-    //     });
-
-    //     this.peer = peer;
-    // }
-
-    // connectPeer() {
-    //     let peerId = this.elements.peerId.getValue();
-    //     if (!peerId) {
-    //         return;
-    //     } 
-
-    //     var conn = this.peer.connect(peerId);
-    //     this.addPeerConnection(conn, {
-    //         reliable: true,
-    //         metadata: {
-    //             lol: 'lol',
-    //             type: ConnectionType.Main,
-    //             serialization: 'json'
-    //         },
-    //     });
-    // }
-
 }
+
 
 defineComponent('main-component', MainComponent, { template, style });

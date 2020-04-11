@@ -1,228 +1,119 @@
+import { logger } from '../logger.js'
+
 class P2pConnection {
-    constructor(localId, remoteId, signalingManager, logInfo, logError) {
+    constructor(localId, remoteId, signalingManager, localVideoElement, remoteVideoElement) {
         this.localId = localId;
         this.remoteId = remoteId;
         this.rtcPeerConnection = null;
         this.signalingManager = signalingManager;
-        this.logInfo = logInfo;
-        this.logError = logError;
-
+        this.localVideoElement = localVideoElement;
+        this.remoteVideoElement = remoteVideoElement;
     }
-
-    initlol() {
-        this.logInfo('init')
-        let server = { urls: "stun:stun.l.google.com:19302" };
-        this.dc = null;
-        this.rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
-        this.rtcPeerConnection.onaddstream = e => 
-        { 
-            this.logInfo('on add stream');
-            document.querySelector('main-component').elements.v2.srcObject = e.stream;
-        }
-        this.rtcPeerConnection.ondatachannel = e => { 
-            this.logInfo('ondatachhanel');
-            this.dcInit(this.dc = e.channel);
-        }
-        this.rtcPeerConnection.oniceconnectionstatechange = e => this.logInfo(this.rtcPeerConnection.iceConnectionState);
-        this.haveGum = Promise.resolve();
-        /*this.haveGum = navigator.mediaDevices.getUserMedia({video:true, audio:true})
-        .then(stream =>  {
-            this.logInfo('got gum!');
-            let v1 = document.querySelector('main-component').elements.v1
-            v1.srcObject = stream;
-            this.pc.addStream(stream)
-            return stream;
-        }).catch(this.logError);*/
-            
-  
-    }
-    dcInit() {
-        this.dc.onopen = () => this.logInfo("Chat!");
-        this.dc.onmessage = e => this.logInfo(e.data);
-    }
-
-    createOffer() {
-        this.initlol();
-        this.dcInit(this.dc =this.rtcPeerConnection.createDataChannel("chat"));
-        this.haveGum.then(() => {
-            this.logInfo('create offer')
-            this.rtcPeerConnection.createOffer()
-        }).then(d =>  {
-            this.logInfo('setLocalDescription')
-            this.rtcPeerConnection.setLocalDescription(d)
-        }).then(() => {
-            this.logInfo('setLocalDescription FINISH');
-        })
-        .catch(this.logError);
-        this.rtcPeerConnection.onicecandidate = e => {
-            this.logInfo(`e.candidate ${JSON.stringify(e.candidate)}`);
-            if (e.candidate) return;
-            let offer = this.rtcPeerConnection.localDescription;
-            this.signalingManager.sendOffer(this.remoteId, offer)
-            .then(answer => this.acceptAnswer(answer))
-        }
-    }
-
-     acceptOffer(incomingOffer) {
-        this.initlol();
-        if (this.rtcPeerConnection.signalingState != "stable") return;
-        this.haveGum.then(() =>  {        
-                this.logInfo(`set remote desc`);
-                this.rtcPeerConnection.setRemoteDescription(incomingOffer)
-                .then(() => { 
-                    this.logInfo(`create answer`);
-                    this.rtcPeerConnection.createAnswer();
-                } ).then(d => {
-                    this.logInfo(`setLocalDescription`);
-                    this.rtcPeerConnection.setLocalDescription(d)
-                })
-                .catch(this.logError);
-            this.rtcPeerConnection.onicecandidate = e => {
-                this.logInfo(`e.candidate ${JSON.stringify(e.candidate)}`);
-                if (e.candidate) return;
-                let answer = this.rtcPeerConnection.localDescription;
-                this.logInfo('sending answer')
-                this.signalingManager.sendAnswer(this.remoteId, answer);
-            };
-        });
-
-    };
-
-    acceptAnswer(answer) {
-        this.logInfo('accept answer')
-        if (this.rtcPeerConnection.signalingState != "have-local-offer") return;
-        this.rtcPeerConnection.setRemoteDescription(answer).catch(this.logError);
-    };
 
     bindChatChannel() {
-        this.chatChannel.onopen = () => this.logInfo("Chat!");
-        this.chatChannel.onmessage = e => this.logInfo(e.data);
-
+        this.chatChannel.onopen = () => logger.info("Chat!");
+        this.chatChannel.onmessage = e => logger.info(e.data);
     }
 
     async connect() {
         try {    
-            this.logInfo(`start connect`);
+            logger.info(`start connect`);
             this.initConnection();
 
-            this.logInfo(`adding data channel`);
+            logger.info(`adding data channel`);
             this.chatChannel =  this.rtcPeerConnection.createDataChannel('chat');
             this.bindChatChannel();
 
             await this.media;
 
-            this.logInfo(`start listen ice candidate`);
+            logger.info(`start listen ice candidate`);
             let icePromise = this.addIceCandidate(this.rtcPeerConnection);
 
-            this.logInfo(`adding creating offer`);
+            logger.info(`adding creating offer`);
             let localOffer = await this.rtcPeerConnection.createOffer(); // can contain constraints, like to support audio, video etc
 
-            this.logInfo(`set local desc`);
+            logger.info(`set local desc`);
             await this.rtcPeerConnection.setLocalDescription(localOffer);
 
-            this.logInfo(`await ice candidate`);
+            logger.info(`await ice candidate`);
             await icePromise;
 
-            this.logInfo(`send offer by signaling server`);
+            logger.info(`send offer by signaling server`);
             // can send original offer without waiting for ice server, unlike answer. but it's better practice this way.
             let offerForRemote = this.rtcPeerConnection.localDescription;
             let remoteAnswer = await this.signalingManager.sendOffer(this.remoteId, offerForRemote); // remote receive offer, set it as remotedesc, then returns answer
             
-            this.logInfo(`received answer.. setting remote desc`, remoteAnswer);
+            logger.info(`received answer.. setting remote desc`, remoteAnswer);
             await this.rtcPeerConnection.setRemoteDescription(remoteAnswer);   
 
-            this.logInfo(`finish connection`);
+            logger.info(`finish connection`);
         }
         catch (ex) {
-            console.error(ex);
+            logger.error(ex);
         }
     }
 
     async connectFromOffer(incomingOffer) {
-        this.logInfo(`incoming offer`, incomingOffer);
+        logger.info(`incoming offer`, incomingOffer);
         this.initConnection();
 
         await this.media;
 
-        this.logInfo(`start listen ice candidate`);
+        logger.info(`start listen ice candidate`);
         let icePromise = this.addIceCandidate(this.rtcPeerConnection);
 
-
-        this.logInfo(`setting remote desc`);
+        logger.info(`setting remote desc`);
         await this.rtcPeerConnection.setRemoteDescription(incomingOffer);
 
-        this.logInfo(`creating answer`);
+        logger.info(`creating answer`);
         let answerForLocal = await this.rtcPeerConnection.createAnswer(); //creates SDP without candidate and without external ip.
 
-        this.logInfo(`set local desc`);
+        logger.info(`set local desc`);
         await this.rtcPeerConnection.setLocalDescription(answerForLocal);
 
-        this.logInfo(`await ice candidate`);
+        logger.info(`await ice candidate`);
         await icePromise;
 
-        this.logInfo(`send answer by remote desc`);
+        logger.info(`send answer by remote desc`);
         let answerToRemote = this.rtcPeerConnection.localDescription // after ice server finsh, uses updated version of the SDP with the candidate and external ip
         this.signalingManager.sendAnswer(this.remoteId, answerToRemote);
         
-        this.logInfo(`finish connection`);
+        logger.info(`finish connection`);
     }
 
     initConnection() {
         let iceServers =
         [
+            { urls: "stun:stun4.l.google.com:19302" }, 
             {
                 url: 'turn:numb.viagenie.ca',
                 credential: 'muazkh',
                 username: 'webrtc@live.com'
-            },
-            // { urls: "stun:stun4.l.google.com:19302" }, 
-            // { urls: "stun:stun2.l.google.com:19302" }, 
-            // { urls: "stun:stun3.l.google.com:19302" }, 
-            // {
-            //     url: 'turn:turn.anyfirewall.com:443?transport=tcp',
-            //     credential: 'webrtc',
-            //     username: 'webrtc'
-            // }
-            // { 
-            //     urls: 'turn:homeoturn.bistri.com:80',
-            //     username: 'homeo',
-            //     credential: 'homeo'
-            // },
-            // {
-            //     urls: 'turn:192.158.29.39:3478?transport=udp',
-            //     credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-            //     username: '28224511:1379330808'
-            // },
-            // {
-            //     urls: 'turn:192.158.29.39:3478?transport=tcp',
-            //     credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-            //     username: '28224511:1379330808'
-            // },
+            }
         ]
 
-        //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
         let rtcPeerConnection = new RTCPeerConnection({ iceServers: iceServers });
-        //TODO: if exists: in case of reconnect?
+
         rtcPeerConnection.remoteStream = null;
         rtcPeerConnection.ontrack = ev => {
-            this.logInfo('streammm');  
+            logger.info('ontrack');  
             if (!rtcPeerConnection.remoteStream) {
                 rtcPeerConnection.remoteStream = new MediaStream();
             }
             rtcPeerConnection.remoteStream.addTrack(ev.track);
 
-            document.querySelector('main-component').elements.v2.srcObject = rtcPeerConnection.remoteStream;
+            this.localVideoElement.srcObject = rtcPeerConnection.remoteStream;
         }
         rtcPeerConnection.ontra
             
         rtcPeerConnection.ondatachannel = e => {
-            this.logInfo('data channelll');
+            logger.info('ondatachannel');
             this.chatChannel = e.channel;
             this.bindChatChannel();
         };
 
         rtcPeerConnection.oniceconnectionstatechange = e => {
-            this.logInfo(rtcPeerConnection.iceConnectionState);
+            logger.info(rtcPeerConnection.iceConnectionState);
         }
 
         this.media = navigator.mediaDevices.getUserMedia({video:true, audio:true})
@@ -232,13 +123,13 @@ class P2pConnection {
                 this.rtcPeerConnection.addTrack(track, stream);
             }
 
-            this.rtcPeerConnection.addStream(document.querySelector('main-component').elements.v1.srcObject = stream);
+            this.remoteVideoElement.srcObject = stream
             return stream;
 
-        }).catch(this.logError);
+        }).catch(logger.error);
 
 
-        //rtcPeerConnection.onconnectionstatechange = ev => this.onConnectionStateChange(ev); 
+        rtcPeerConnection.onconnectionstatechange = ev => logger.info(this.rtcPeerConnection.connectionState);
 
         this.rtcPeerConnection = rtcPeerConnection;
         
@@ -246,13 +137,13 @@ class P2pConnection {
     }
 
     onConnectionStateChange(ev) {
-        this.logInfo(this.rtcPeerConnection.connectionState);
+        logger.info(this.rtcPeerConnection.connectionState);
     }
 
     addIceCandidate(rtcPeerConnection) {
         return new Promise((resolve, reject) => {
             rtcPeerConnection.onicecandidate = e => {
-               this.logInfo(`e.candidate ${JSON.stringify(e.candidate)}`)
+               logger.info(`e.candidate ${JSON.stringify(e.candidate)}`)
                 try {
                     if (!e.candidate) {
                         resolve();
