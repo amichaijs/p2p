@@ -177,7 +177,7 @@ class P2pConnection {
         rtcPeerConnection.ontrack = ev => {
             this.logInfo('streammm');  
             if (!rtcPeerConnection.remoteStream) {
-                rtcPeerConnection.remoteStream = new MediaStream(ev.track)
+                rtcPeerConnection.remoteStream = new MediaStream();
             }
             rtcPeerConnection.remoteStream.addTrack(ev.track);
 
