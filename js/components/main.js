@@ -65,8 +65,10 @@ let style = html`
     }
 
     #localVideo {
-        visibility:hidden;
         position:absolute;
+        width: 30%;
+        bottom: 20px;
+        left: 20px;
     }
 
     .video {
@@ -161,9 +163,10 @@ class MainComponent extends MdcComponent {
             this.elements.localVideo.hidden = false;
             this.elements.remoteVideo.hidden = false;
 
-            this.elements.localVideo.onloadedmetadata = () => {
-                this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
-            }
+            // not support in android.. yet
+            // this.elements.localVideo.onloadedmetadata = () => {
+            //     this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
+            // }
         };
     }
 
@@ -193,6 +196,7 @@ class MainComponent extends MdcComponent {
             return;
         } 
 
+        this.elements.welcomeTitle.setValue('Connecting peer...')
         let res = await this.p2pManager.connectPeer(this.remoteId);
     }
 }

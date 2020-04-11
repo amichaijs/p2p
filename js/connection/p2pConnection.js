@@ -102,7 +102,7 @@ class P2pConnection {
             }
             rtcPeerConnection.remoteStream.addTrack(ev.track);
 
-            this.localVideoElement.srcObject = rtcPeerConnection.remoteStream;
+            this.remoteVideoElement.srcObject = rtcPeerConnection.remoteStream;
         }
         rtcPeerConnection.ontra
             
@@ -123,7 +123,7 @@ class P2pConnection {
                 this.rtcPeerConnection.addTrack(track, stream);
             }
 
-            this.remoteVideoElement.srcObject = stream
+            this.localVideoElement.srcObject = stream
             return stream;
 
         }).catch(logger.error);
