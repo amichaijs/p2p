@@ -171,7 +171,23 @@ class P2pConnection {
         let server = { urls: "stun:stun.l.google.com:19302" };
 
         //let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server] });
-        let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server,  { url: 'turn:homeoturn.bistri.com:80', username: 'homeo', credential: 'homeo' }] });
+        let rtcPeerConnection = new RTCPeerConnection({ iceServers: [server, 
+            { 
+                urls: 'turn:homeoturn.bistri.com:80',
+                username: 'homeo',
+                credential: 'homeo'
+            },
+            {
+                urls: 'turn:192.158.29.39:3478?transport=udp',
+                credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+                username: '28224511:1379330808'
+            },
+            {
+                urls: 'turn:192.158.29.39:3478?transport=tcp',
+                credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+                username: '28224511:1379330808'
+            },
+        ] });
         //TODO: if exists: in case of reconnect?
         rtcPeerConnection.remoteStream = null;
         rtcPeerConnection.ontrack = ev => {
