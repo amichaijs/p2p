@@ -19,7 +19,7 @@ const ConnectionType = {
 }
 
 let template = html`
-<div class="main">
+<div id="main">
     <div id="welcome">
         <h3 id="welcomeTitle"  class="loading" >Just a moment...</h3>
         <mdc-button hidden id="btnStart"></mdc-button>
@@ -35,7 +35,7 @@ let style = html`
         display:none !important;
     }
 
-    .main {
+    #main {
         display:flex;
         flex-flow: column;
         justify-content:center;
@@ -173,7 +173,7 @@ class MainComponent extends MdcComponent {
 
             this.elements.localVideo.hidden = false;
             this.elements.remoteVideo.hidden = false;
-            this.requestFullscreen().catch(logger.error);
+            this.elements.main.requestFullscreen().catch(logger.error);
             // not support in android.. yet
             // this.elements.localVideo.onloadedmetadata = () => {
             //     this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
