@@ -70,6 +70,7 @@ let style = html`
         bottom: 20px;
         left: 20px;
         z-index:1;
+        transform: rotateY(180deg);
     }
 
     #remoteVideo { 
@@ -172,7 +173,7 @@ class MainComponent extends MdcComponent {
 
             this.elements.localVideo.hidden = false;
             this.elements.remoteVideo.hidden = false;
-
+            this.requestFullscreen().catch(logger.error);
             // not support in android.. yet
             // this.elements.localVideo.onloadedmetadata = () => {
             //     this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
@@ -191,7 +192,6 @@ class MainComponent extends MdcComponent {
 
     async answerCall() { 
         await this.connectSignalingPromise;
-        await this.requestFullscreen().catch(logger.error);
         await this.connectPeer();
     }
 
