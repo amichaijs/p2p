@@ -25,8 +25,10 @@ let template = html`
         <mdc-button hidden id="btnStart"></mdc-button>
     </div>
     <log-component id="logComponent"></log-component>
-    <video hidden id="localVideo" class="video" autoplay muted></video>
-    <video hidden id="remoteVideo" class="video" autoplay></video>
+    <div hidden id="videoContainer">
+        <video id="localVideo" class="video" autoplay muted></video>
+        <video id="remoteVideo" class="video" autoplay></video>
+    </div>
 </div>`;
 
 let style = html`
@@ -44,6 +46,7 @@ let style = html`
         right:0;
         bottom:0;
         left:0;
+        background: white;
     }
 
     #welcome {
@@ -71,19 +74,29 @@ let style = html`
         left: 20px;
         z-index:1;
         transform: rotateY(180deg);
+        max-width: 240px;
     }
 
     #remoteVideo { 
-        position: absolute;
-        top: 0;
-        left: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
+        max-width: 800px;
     }
 
     .video {
         width:100%;
+    }
+
+    #videoContainer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width:100%;
+        height:100%;
+        background: url(resources/webrtc.png), url(resources/webrtc.png) 45px 75px;
+        background-size: 90px 52px;
+        
     }
 
     .loading {
@@ -102,6 +115,12 @@ let style = html`
 
         100% {
             transform:scale(1)
+        }
+    }
+
+    @media (min-width: 768px) {
+        #remoteVideo { 
+            height: auto;
         }
     }
 </style>`;
@@ -159,8 +178,9 @@ class MainComponent extends MdcComponent {
     }
 
     async addPeerLinkToClipboard() {
+        this.tryFullScreen();
         let url = `${window.location.href.split("?")[0]}?id=${this.localId}`
-        navigator.clipboard.writeText(url);
+        navigator.clipboard.writeText(url).catch(logger.error);
         this.elements.btnStart.setValue('Copied!')
     }
 
@@ -170,10 +190,7 @@ class MainComponent extends MdcComponent {
         this.p2pManager.remoteVideoElement = this.elements.remoteVideo;
         this.p2pManager.onNewConnection = () => {
             this.elements.welcome.hidden = true;
-
-            this.elements.localVideo.hidden = false;
-            this.elements.remoteVideo.hidden = false;
-            this.elements.main.requestFullscreen().catch(logger.error);
+            this.elements.videoContainer.hidden = false;
             // not support in android.. yet
             // this.elements.localVideo.onloadedmetadata = () => {
             //     this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
@@ -202,12 +219,19 @@ class MainComponent extends MdcComponent {
     }
 
     async connectPeer() {
+        this.tryFullScreen();
         if (!this.remoteId) {
             return;
         } 
 
         this.elements.welcomeTitle.setValue('Connecting peer...')
         let res = await this.p2pManager.connectPeer(this.remoteId);
+    }
+
+    async tryFullScreen() {
+        if (!document.fullscreen) {
+            return this.elements.main.requestFullscreen().catch(logger.error);
+        }
     }
 }
 

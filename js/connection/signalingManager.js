@@ -44,6 +44,13 @@ class SignalingManager {
             ws.onopen = function() {
                 resolve(ws);
             };
+
+            ws.onclose = function (p) {
+                logger.error('connection close');
+                //TODO onclose    
+            }
+            
+
             ws.onerror = function(err) {
                 reject(err);
             };
