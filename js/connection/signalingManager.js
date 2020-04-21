@@ -15,12 +15,17 @@ let ErrorCodes = {
     PeerNotFound: 4
 }
 
+const WS_CLOSE_REASON_INACTIVE = 4001;
+
 class SignalingManager {
     constructor(url) {
         this.url = url;
         this.requests = new Map();
         this.ws = null;
         this.localId = null;
+        this.visibilityChangeListener = null;
+        this.timeoutInActive = null;
+        this.maxInActiveSeconds = 30
     }
 
     connect() {
@@ -37,22 +42,30 @@ class SignalingManager {
             this.addPromise('newId', { resolve, reject, expectedResultType: MessageType.NewUserId });
         });
 
+        let error = null;
+        let resolved;
         return new Promise((resolve, reject) => {
             let ws = new WebSocket(this.url);
             this.ws = ws;
 
-            ws.onopen = function() {
+            ws.onopen = () => {
+                this.visibilityChangeListener = () => this.trackInActive()
+                document.addEventListener('visibilitychange', this.visibilityChangeListener, false);
                 resolve(ws);
             };
 
-            ws.onclose = function (p) {
-                logger.error('connection close');
-                //TODO onclose    
+            ws.onclose = () => {
+                logger.error('connection close', error);
+                if (!resolved) {
+                    reject(error);
+                }
+                else {
+                    this.onDisconnect(error);
+                }
             }
             
-
             ws.onerror = function(err) {
-                reject(err);
+                error = err;
             };
 
             ws.onmessage = ev => this.onMessage(ev);
@@ -113,7 +126,7 @@ class SignalingManager {
         this.requests.set(key, promiseDesc);
     }
 
-    sendAsync = function({ type, to, data, expectedResultType: expectedResultType }) {
+    sendAsync({ type, to, data, expectedResultType: expectedResultType }) {
         let promise = new Promise((resolve, reject) => {
             this.addPromise(to, { resolve, reject, expectedResultType: expectedResultType});
             this.ws.send(JSON.stringify({ type, to, data}));
@@ -137,6 +150,25 @@ class SignalingManager {
     async getLocalId() {
         await this._localIdPromise;
         return this.localId;
+    }
+
+    trackInActive() {
+        return; // disabled for debugging
+        if (document.hidden) {
+            logger.info('start inactive')
+            this.timeoutInActive = setTimeout(() => {
+                logger.info('close ws because inactive')
+                //this.ws.close(WS_CLOSE_REASON_INACTIVE, `tab inactive for more than ${this.maxInActiveSeconds}`);
+            }, this.maxInActiveSeconds * 1000);
+        }
+        else if (this.timeoutInActive) {
+            logger.info('clear timeout inactive');
+            clearTimeout(this.timeoutInActive);
+        }
+    }
+
+    onDisconnect() {
+        
     }
 }
 
