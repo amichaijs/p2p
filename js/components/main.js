@@ -10,6 +10,7 @@ import { cameraManager } from '../cameraManager.js';
 
 */
 
+//const signalServerUrl = "wss://js-webrtc-server.herokuapp.com"
 const signalServerUrl = "ws://localhost:5000"
 
 let template = html`
@@ -77,25 +78,28 @@ let style = html`
 
     #remoteVideosContainer { 
         --column-count: 1;
-        display:grid;
-        grid-template-columns: repeat(var(--column-count), 1fr);
-        align-items: center;
-        justify-items: center;
-        gap: 6px;
+        --row-count: 1;
+        display:flex;
+        flex-flow: row wrap;
+        /* align-content: center; */
+        justify-content: center;
+        flex-direction: row;
+        background:black;
         width: 100%;
         height: 100%;
-        /* width: 100%; */
-        /* height: 100%; */
     }
 
     .remoteVideoWrapper {
         display: flex;
-        justify-content: center;
-        width: 100%;
-        height: 100%;
         animation: 400ms cubic-bezier(0.74, 1.19, 0.34, 1.05) fade-in;
-}
+        width: calc(100% / var(--column-count));
+        height: calc(100% / var(--row-count));
+        /* flex-grow: 1; if wanting last items to stretch */
+        border: 2px black solid;
+        box-sizing: border-box;
+        /* max-height: calc(100% / var(--column-count))  if flex grow enabled,  when there is single item in one row it over strech;*/
     }
+
 
     .remoteVideoWrapper video {
         object-fit: cover;   
@@ -142,6 +146,17 @@ let style = html`
     @media (min-width: 768px) {
         #remoteVideo { 
             height: auto;
+        }
+    }
+
+    @keyframes fade-in {
+        from {
+            opacity:0;
+            transform: scale(0.5);
+        }
+        to  {
+            opacity: 1;
+            transform: scale(1);
         }
     }
 </style>`;
@@ -204,6 +219,10 @@ class MainComponent extends MdcComponent {
                 cameraManager.toggleCamera();
             }
         }
+
+        if (!this.isFromInvite()) {
+            this.p2pManager.setIsHost(true);
+        }
     }
 
     async addPeerLinkToClipboard() {
@@ -219,22 +238,30 @@ class MainComponent extends MdcComponent {
         video.autoplay = true;
         video.className = 'remoteVideo';
 
-        let videoContainer = document.createElement('div');
-        videoContainer.className = 'remoteVideoWrapper';
+        let videoWrapper = document.createElement('div');
+        videoWrapper.className = 'remoteVideoWrapper';
 
-        videoContainer.appendChild(video);
+        videoWrapper.appendChild(video);
         this.remoteVideos.push(video);
-        this.elements.remoteVideosContainer.appendChild(videoContainer);
+        this.elements.remoteVideosContainer.appendChild(videoWrapper);
 
-        this.updateVideoStyle();
+        this.updateVideoLayout();
 
-        return { wrapper: videoContainer, video: video } ;
+        return { wrapper: videoWrapper, video: video } ;
     }
 
-    updateVideoStyle() {
+    removeVideo(videoWrapper) {
+        videoWrapper.remove();
+        this.updateVideoLayout();
+    }
+
+    updateVideoLayout() {
         let vidCount = this.elements.remoteVideosContainer.querySelectorAll('video').length;
         let colCount = Math.ceil(Math.sqrt(vidCount));
-        this.elements.remoteVideosContainer.style.setProperty('--column-count', colCount);
+        let rowCount = Math.ceil(vidCount / colCount);
+        let el =  this.elements.remoteVideosContainer;
+        el.style.setProperty('--column-count', colCount);
+        el.style.setProperty('--row-count', rowCount);
     }
 
     initP2pManager() {
@@ -249,16 +276,19 @@ class MainComponent extends MdcComponent {
             //connection.setMediaStream(cameraManager.stream)
             let { wrapper,  video: remoteVideo } = this.createRemoteVideo();
             connection.setRemoteVideo(remoteVideo);
+
             connection.on('disconnected', () => {
                 console.info(`peer ${connection.remote.id} disconnected - removing video`)
-                wrapper.remove();
+                this.removeVideo(wrapper);
             });
+
             connection.on('conferenceTrack', ({ track, stream }) => {
                 let { wrapper: conferenceWrapper, video: conferenceVideo } = this.createRemoteVideo();
                 conferenceVideo.srcObject = stream;
                 stream.addEventListener('removetrack', ev => {
+                    logger.info('removetrack');
                     if (stream.getTracks().length == 0) {
-                        conferenceWrapper.remove();
+                        this.removeVideo(conferenceWrapper);
                     }
                 })
             });

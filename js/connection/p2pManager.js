@@ -1,4 +1,4 @@
-import { SignalingManager  } from './signalingManager.js';
+import { SignalingManager } from './signalingManager.js';
 import { P2pConnection } from './p2pConnection.js';
 import { logger } from '../logger.js';
 import { cameraManager } from '../cameraManager.js';
@@ -20,24 +20,29 @@ class P2pManager {
         this.connections = new Map();
         this.localStream = null;
         this.localVideoElement = localVideoElement;
+        this.isHost = false;
     }
 
     async connectSignalingServer() {
-        try {   
+        try {
             await this.signalingManager.connect();
             this.localId = await this.signalingManager.getLocalId();
         }
         catch (ex) {
             logger.error(ex);
-            throw(ex);
+            throw (ex);
         }
 
         return this.localId;
     }
-               
+
+    setIsHost(isHost) {
+        this.isHost = true;
+    }
+
     async connectPeer(remoteId) {
         let p2pConnection = null;
-        try {   
+        try {
             await this.connectSignalingServer();
             p2pConnection = this.createP2pConnection(remoteId);
             await p2pConnection.connect();
@@ -45,16 +50,16 @@ class P2pManager {
         }
         catch (ex) {
             logger.error(ex);
-            throw(ex);
+            throw (ex);
         }
 
         return p2pConnection;
     }
 
-    async onReceivedOffer(remoteId, incomingOffer)  {
+    async onReceivedOffer(remoteId, incomingOffer) {
         /**@type P2pConnection */
         let p2pConnection = null;
-        try {   
+        try {
             await this.connectSignalingServer();
             let existingConnection = this.connections.get(remoteId);
             if (existingConnection) {
@@ -63,57 +68,83 @@ class P2pManager {
             }
             else {
                 p2pConnection = this.createP2pConnection(remoteId);
-                p2pConnection.onRemoteTrack = (track, stream) => {
-                    this.connections.forEach(con => { 
-                            if (con.isHost && con != p2pConnection) {
-                                logger.info(`transmitting the new peer ${con.remote.id} to other existing connections`)
-                                con.setOtherRemoteTrack(p2pConnection.remote.id, track, stream);
-                            }
-                      });
+
+                if (this.isHost) {
+                    p2pConnection.onRemoteTrack = (track, stream) => {
+                        this.forwardNewRemoteTracksToOtherPeers(p2pConnection, track, stream);
+                    }
                 }
+
                 await p2pConnection.connectFromOffer(incomingOffer);
-                this.localStream && p2pConnection.setMediaStream(this.localStream);
-                if (this.connections.size > 1) {
-                    this.connections.forEach(con => { 
-                        if (con.isHost && p2pConnection !== con ) {
-                            logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
-                            // transmit all existing other peers tracks
-                            if (con.remote.rtpTracks.video) {
-                                p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
-                            }
-                            
-                            if (con.remote.rtpTracks.audio) {
-                                p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
-                            }
-                        }
-                    })  
+
+                if (this.isHost) {
+                    setTimeout(() => {
+                        this.forwardExistingRemotesTracksToNewRemote(p2pConnection);
+                    }, 0);
                 }
+
+                if (this.localStream) {
+                    p2pConnection.setMediaStream(this.localStream);
+                }
+
                 setTimeout(() => this.onNewConnection(p2pConnection), 0);
             }
         }
         catch (ex) {
             logger.error(ex);
-            throw(ex);
+            throw (ex);
         }
 
         return p2pConnection;
     }
 
+    forwardNewRemoteTracksToOtherPeers(p2pConnection, track, stream) {
+        if (this.connections.size > 1) {
+            logger.info('forwardNewRemoteTracksToOtherPeers');
+            this.connections.forEach(con => {
+                if (con != p2pConnection) {
+                    logger.info(`transmitting the new peer ${con.remote.id} to other existing connections`)
+                    con.setOtherRemoteTrack(p2pConnection.remote.id, track, stream);
+                }
+            });
+        }
+    }
+
+    forwardExistingRemotesTracksToNewRemote(p2pConnection) {
+        if (this.connections.size > 1) {
+            logger.info('forwardExistingRemotesTracksToNewRemote')
+            this.connections.forEach(con => {
+                if (p2pConnection !== con) {
+                    logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
+                    // transmit all existing other peers tracks
+                    if (con.remote.rtpTracks.video) {
+                        p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
+                    }
+
+                    if (con.remote.rtpTracks.audio) {
+                        p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
+                    }
+                }
+            });
+        }
+    }
+
+
     createP2pConnection(remoteId) {
-        let p2pConnection = new P2pConnection(this.localId, remoteId, this.signalingManager, this.remoteVideoElement);
+        let p2pConnection = new P2pConnection(this.localId, remoteId, this.isHost, this.signalingManager, this.remoteVideoElement);
         this.connections.set(remoteId, p2pConnection);
         p2pConnection.on('disconnected', () => {
             logger.info(`deleting connection ${remoteId}`);
             this.connections.delete(remoteId);
         });
-            
+
         return p2pConnection;
     }
 
     hasPeersOrWsConnection() {
         let hasConnection = false;
         if (!this.signalingManager.ws.readyState === WebSocket.OPEN) {
-            
+
             for (let connection of this.connections) {
                 if (!connection.isDisconnected()) {
                     hasConnection = true;
@@ -137,16 +168,16 @@ class P2pManager {
     setLocalStream(stream) {
         try {
             this.localStream = stream;
-            this.connections.forEach(async c =>  {
+            this.connections.forEach(async c => {
                 await c.deferred;
                 c.setMediaStream(stream);
-            })     
+            })
         }
         catch (ex) {
             logger.error(ex);
         }
     }
-        
+
 }
 
 export {
