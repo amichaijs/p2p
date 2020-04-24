@@ -25,6 +25,11 @@ let template = html`
         <div id="remoteVideosContainer">
             <!-- <video id="remoteVideo" class="video" autoplay></video> -->
         </div>
+        <div id="callButtonsContainer">
+            <icon-button id="btnEnableVideo"></icon-button>
+            <icon-button id="btnEnableMic"></icon-button>
+            <icon-button id="btnEnableScreenShare"></icon-button>
+        </div>
     </div>
 </div>`;
 
@@ -87,6 +92,7 @@ let style = html`
         background:black;
         width: 100%;
         height: 100%;
+        overflow: hidden; /** hides animation fudge up */
     }
 
     .remoteVideoWrapper {
@@ -133,6 +139,16 @@ let style = html`
         color: red;
     }
 
+    #callButtonsContainer {
+        height: 80px;
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+    
     @keyframes resize-loop {
         0% {
             transform:scale(1.1)
@@ -168,6 +184,7 @@ class MainComponent extends MdcComponent {
         this.p2pManager = null;
         this.remoteId = new URLSearchParams(window.location.search).get('id');
         this.remoteVideos = [];
+        this.displayStream = null;
     }
 
     isFromInvite() {
@@ -184,6 +201,8 @@ class MainComponent extends MdcComponent {
                 this.connectServer();
             }
         })
+
+        this.initCallButtons();
     }
 
     setWelcome() {
@@ -211,13 +230,7 @@ class MainComponent extends MdcComponent {
         this.elements.btnStart.hidden = false;
 
         this.elements.localVideo.onclick = async () => {
-            if (navigator.mediaDevices.getDisplayMedia) {
-                let stream = await navigator.mediaDevices.getDisplayMedia();
-                this.p2pManager.setLocalStream(stream);
-            }
-            else {
-                cameraManager.toggleCamera();
-            }
+            cameraManager.toggleCamera();
         }
 
         if (!this.isFromInvite()) {
@@ -368,6 +381,45 @@ class MainComponent extends MdcComponent {
         if (!document.fullscreen) {
             return this.elements.main.requestFullscreen().catch(logger.error);
         }
+    }
+
+    initCallButtons() {
+        let btnEnableVideo = this.elements.btnEnableVideo;
+        let btnEnableMic = this.elements.btnEnableMic;
+        let btnEnableScreenShare = this.elements.btnEnableScreenShare;
+
+        btnEnableVideo.setIcon('videocam');
+        btnEnableMic.setIcon('mic');
+        btnEnableScreenShare.setIcon('screen_share');
+
+        btnEnableVideo.addEventListener('click', () => {
+            let [track] = cameraManager.stream ? cameraManager.stream.getVideoTracks() : [];
+            track.enabled = !track.enabled;
+            let icon = track.enabled ? 'videocam' : 'videocam_off' 
+            btnEnableVideo.setIcon(icon);
+        })
+
+        btnEnableMic.addEventListener('click', () => {
+            let [track] = cameraManager.stream ? cameraManager.stream.getAudioTracks() : [];
+            track.enabled = !track.enabled;
+            let icon = track.enabled ? 'mic' : 'mic_off' 
+            btnEnableMic.setIcon(icon);
+        })
+
+        btnEnableScreenShare.addEventListener('click', async () => {
+            if (this.displayStream) {
+                this.displayStream.getTracks().forEach(t => t.stop());
+                this.displayStream = null;
+                this.p2pManager.setLocalStream(cameraManager.stream);
+            }
+            else {
+                this.displayStream = await navigator.mediaDevices.getDisplayMedia();
+                this.p2pManager.setLocalStream(this.displayStream);
+            }
+
+            let icon = this.displayStream ? 'screen_share' : 'stop_screen_share' ;
+            btnEnableScreenShare.setIcon(icon);
+        })
     }
 }
 

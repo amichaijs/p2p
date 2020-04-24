@@ -136,9 +136,32 @@ class P2pManager {
         p2pConnection.on('disconnected', () => {
             logger.info(`deleting connection ${remoteId}`);
             this.connections.delete(remoteId);
+            this.removeForwardedTracksFromDeadConnection();
         });
 
         return p2pConnection;
+    }
+
+    removeForwardedTracksFromDeadConnection(p2pConnection) {
+        // each connection that has forwaded tracks create its own senders that wraps the same track object.
+        // remotes have removetrack event on their side.
+        if (p2pConnection.remote.stream) {
+            let tracks = p2pConnection.remote.stream.getTracks();
+            logger.info('remove existing stream from conference')
+            this.connections.forEach(con => {
+                let senders = con.rtcPeerConnection.getSenders()
+                logger.info(`before remove from con ${con.remote.id}`)
+                for (let sender of senders) {
+                    if (tracks.includes(sender.track)) {
+                        logger.info(`remove track from con ${sender}`)
+                        con.rtcPeerConnection.removeTrack(sender);
+                    }
+                    else {
+                        logger.info(`irrelevant track from con ${sender}`)
+                    }
+                }
+            })
+        }
     }
 
     hasPeersOrWsConnection() {
@@ -177,7 +200,6 @@ class P2pManager {
             logger.error(ex);
         }
     }
-
 }
 
 export {

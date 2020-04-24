@@ -221,6 +221,20 @@ class P2pConnection {
         rtcPeerConnection.oniceconnectionstatechange = e => {
             logger.info(rtcPeerConnection.iceConnectionState);
             if (this.rtcPeerConnection.iceConnectionState === 'disconnected') {
+                // if (this.remote.stream) {
+                //     logger.info('remove existing stream from conference')
+                //     let senders = this.rtcPeerConnection.getSenders();
+                //     for (let sender of senders) {
+                //         logger.info(`remove track from con ${sender}`)
+                //         this.rtcPeerConnection.removeTrack(sender);
+                //     }
+
+                //     let tracks = this.remote.stream.getTracks();
+                //     for (let track of tracks) {
+                //         this.remote.stream.removeTrack(track);
+                //     }
+                // }
+                
                 this.onDisconnected();
             }
         }

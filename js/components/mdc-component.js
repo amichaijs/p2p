@@ -1,5 +1,8 @@
 let mdcCss = new CSSStyleSheet()
-mdcCss.replace( "@import url(style/materialize.min.css)");
+mdcCss.replace(`
+    @import url(style/materialize.min.css);
+    @import url(https://fonts.googleapis.com/icon?family=Material+Icons);
+`);
 
 let defineComponent = function(name, componentClass, { template = null, style = null, props = null }) {
     let stylesheets = [mdcCss];
