@@ -10,8 +10,8 @@ import { cameraManager } from '../cameraManager.js';
 
 */
 
-//const signalServerUrl = "wss://js-webrtc-server.herokuapp.com"
-const signalServerUrl = "ws://localhost:5000"
+let isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === "127.0.0.1";
+const signalServerUrl = isLocalhost ? "ws://localhost:5000" : "wss://js-webrtc-server.herokuapp.com"
 
 let template = html`
 <div id="main">
