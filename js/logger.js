@@ -7,41 +7,44 @@ let getTimeString = function() {
     return `${hours}:${minutes}:${seconds}:${milliseconds}`;
 }
 
-const logger = {
-    callbacks: [],
+let callbacks = [];
+
+class Logger {
+    constructor(name) {
+        this.name = name || '';
+    }
+
     _log(msg, level, time) {
-        if (this.callbacks.length) {
-            this.callbacks.forEach(callback => callback(msg, level, time));
+        if (callbacks.length) {
+            callbacks.forEach(callback => callback(msg, level, time));
         }
-    },
+    }
     info(msg) {
         let time = getTimeString();
-        console.info(time, msg);
+        console.info(time, this.name, msg);
         this._log(msg, 'info', time);
-    },
+    }
     warn(msg) {
         let time = getTimeString();
-        console.warn(time, msg);
+        console.warn(time, this.name, msg);
         this._log(msg, 'warn');
-    },
+    }
     error(exOrMsg) {
         let time = getTimeString();
-        console.error(time, exOrMsg);
+        console.error(time, this.name, exOrMsg);
         let msg = exOrMsg instanceof Error ? exOrMsg.stack : exOrMsg;
         this._log(msg, 'error');
-    },
+    }
 
     onLog(callback) {
-        this.callbacks.push(callback);
+        callbacks.push(callback);
     }
 }
 
+const logger = new Logger();
 
-
-logger.info = logger.info.bind(logger);
-logger.warn = logger.warn.bind(logger);
-logger.error = logger.error.bind(logger);
 
 export {
-    logger
+    logger,
+    Logger
 }

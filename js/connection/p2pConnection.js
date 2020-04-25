@@ -1,5 +1,5 @@
 import { Deferred, EventManager } from '../helpers.js'
-import { logger } from '../logger.js'
+import { Logger } from '../logger.js'
 import { cameraManager } from '../cameraManager.js';
 
 const DataChannels = {
@@ -36,6 +36,7 @@ class PeerInfo {
 
 class P2pConnection {
     constructor(localId, remoteId, isHost, signalingManager, remoteVideoElement) {
+        this.logger = new Logger(`[remote:${remoteId}]`);
         this.local = new PeerInfo(localId);
         this.remote = new PeerInfo(remoteId, remoteVideoElement);
         this.rtcPeerConnection = null;
@@ -57,35 +58,35 @@ class P2pConnection {
 
     setCommunicationChannel(channel) {
         this.communicationChannel = channel;
-        this.communicationChannel.onopen = () => logger.info("communication channel open!");
+        this.communicationChannel.onopen = () => this.logger.info("communication channel open!");
         this.communicationChannel.onmessage = e =>  {
-                logger.info(e.data);
+                this.logger.info(e.data);
         }
     }
 
     async connect() {
         try {
-            logger.info(`start connect`);
+            this.logger.info(`start connect`);
             await this.initConnection();
 
-            logger.info(`adding data channel`);
+            this.logger.info(`adding data channel`);
             let communicationChannel = this.rtcPeerConnection.createDataChannel('communication', { id: DataChannels.Communication});
             this.setCommunicationChannel(communicationChannel);
 
             let stream = await cameraManager.setCamera();
             this.setMediaStream(stream);
 
-            logger.info(`start listen ice candidate`);
+            this.logger.info(`start listen ice candidate`);
             this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
 
             await this.negotiate();
             this.finishedFirstConnection = true;
-            this.deferred.resolve();
-
-            logger.info(`finish connection`);
+            
+            this.logger.info(`finish connection`);
+            return this.deferred;
         }
         catch (ex) {
-            logger.error(ex);
+            this.logger.error(ex);
         }
     }
 
@@ -94,21 +95,21 @@ class P2pConnection {
             return;
         };
         
-        logger.info(`adding creating offer`);
+        this.logger.info(`adding creating offer`);
         let localOffer = await this.rtcPeerConnection.createOffer(); // can contain constraints, like to support audio, video etc
 
-        logger.info(`set local desc`);
+        this.logger.info(`set local desc`);
         await this.rtcPeerConnection.setLocalDescription(localOffer);
 
-        logger.info(`await ice candidate`);
+        this.logger.info(`await ice candidate`);
         await this.icePromise;
 
-        logger.info(`send offer by signaling server`);
+        this.logger.info(`send offer by signaling server`);
         // can send original offer without waiting for ice server, unlike answer. but it's better practice this way.
         let offerForRemote = this.rtcPeerConnection.localDescription;
         let remoteAnswer = await this.signalingManager.sendOffer(this.remote.id, offerForRemote); // remote receive offer, set it as remotedesc, then returns answer
 
-        logger.info(`received answer.. setting remote desc`, remoteAnswer);
+        this.logger.info(`received answer.. setting remote desc`, remoteAnswer);
         await this.rtcPeerConnection.setRemoteDescription(remoteAnswer);
 
     }
@@ -116,43 +117,42 @@ class P2pConnection {
     async connectFromOffer(incomingOffer) {
         this.isHost = true;
 
-        logger.info(`incoming offer`, incomingOffer);
+        this.logger.info(`incoming offer`, incomingOffer);
         await this.initConnection();
 
         let stream = await cameraManager.setCamera();
         this.setMediaStream(stream);
 
-        logger.info(`start listen ice candidate`);
+        this.logger.info(`start listen ice candidate`);
         this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
         await this.negotiateBack(incomingOffer);
 
         this.finishedFirstConnection = true;
 
-        logger.info(`finish connection`);
+        this.logger.info(`finish connection`);
+        return this.deferred;
     }
 
     async negotiateBack(incomingOffer) {
         try {   
-            logger.info(`setting remote desc`);
+            this.logger.info(`setting remote desc`);
             await this.rtcPeerConnection.setRemoteDescription(incomingOffer);
 
-            logger.info(`creating answer`);
+            this.logger.info(`creating answer`);
             let answerForLocal = await this.rtcPeerConnection.createAnswer(); //creates SDP without candidate and without external ip.
 
-            logger.info(`set local desc`);
+            this.logger.info(`set local desc`);
             await this.rtcPeerConnection.setLocalDescription(answerForLocal);
 
-            logger.info(`await ice candidate`);
+            this.logger.info(`await ice candidate`);
             await this.icePromise;
 
-            logger.info(`send answer by remote desc`);
+            this.logger.info(`send answer by remote desc`);
             let answerToRemote = this.rtcPeerConnection.localDescription // after ice server finsh, uses updated version of the SDP with the candidate and external ip
             this.signalingManager.sendAnswer(this.remote.id, answerToRemote);
-
-            this.deferred.resolve();
         }
         catch (ex) {
-            logger.error(ex);
+            this.logger.error(ex);
         }
     }
 
@@ -170,7 +170,7 @@ class P2pConnection {
         let rtcPeerConnection = new RTCPeerConnection({ iceServers: iceServers });
 
         rtcPeerConnection.ontrack = ev => {
-            logger.info('ontrack');
+            this.logger.info('ontrack');
             let [inComingStream] = ev.streams
             this.remote.addRtpTrack(ev.receiver);
             let isConferenceTrack = !this.isHost && ev.track.kind === "video" && inComingStream !== this.remote.stream;
@@ -186,7 +186,7 @@ class P2pConnection {
             this.remote.playVideo();
 
             if (isConferenceTrack) {
-                logger.info(`conferenceTrack ${ev.track.kind} and ${ev.track.id}`)
+                this.logger.info(`conferenceTrack ${ev.track.kind} and ${ev.track.id}`)
                 this.events.dispatchEvent('conferenceTrack', { track: ev.track, stream: inComingStream });
             } 
 
@@ -195,12 +195,12 @@ class P2pConnection {
 
         // mostly for when new track added.
         rtcPeerConnection.onnegotiationneeded = e => {
-            logger.info('onnegotiationneeded');
+            this.logger.info('onnegotiationneeded');
             if (!this.finishedFirstConnection) {
-                logger.info('finishedFirstConnection = false');
+                this.logger.info('finishedFirstConnection = false');
             }
             else if (this.negotiating) {
-                logger.info('already negotiating');
+                this.logger.info('already negotiating');
 
             }
             else {
@@ -209,7 +209,7 @@ class P2pConnection {
         }
 
         rtcPeerConnection.ondatachannel = e => {
-            logger.info('ondatachannel');
+            this.logger.info('ondatachannel');
             switch (e.channel.id) {
                 case DataChannels.Communication:
                     this.setCommunicationChannel(e.channel);
@@ -219,13 +219,13 @@ class P2pConnection {
         };
 
         rtcPeerConnection.oniceconnectionstatechange = e => {
-            logger.info(rtcPeerConnection.iceConnectionState);
+            this.logger.info(rtcPeerConnection.iceConnectionState);
             if (this.rtcPeerConnection.iceConnectionState === 'disconnected') {
                 // if (this.remote.stream) {
-                //     logger.info('remove existing stream from conference')
+                //     this.logger.info('remove existing stream from conference')
                 //     let senders = this.rtcPeerConnection.getSenders();
                 //     for (let sender of senders) {
-                //         logger.info(`remove track from con ${sender}`)
+                //         this.logger.info(`remove track from con ${sender}`)
                 //         this.rtcPeerConnection.removeTrack(sender);
                 //     }
 
@@ -241,7 +241,17 @@ class P2pConnection {
 
         rtcPeerConnection.onsignalingstatechange = () => this.negotiating = this.rtcPeerConnection.signalingState != "stable";
 
-        rtcPeerConnection.onconnectionstatechange = ev => logger.info(this.rtcPeerConnection.connectionState);
+        rtcPeerConnection.onconnectionstatechange = ev => {
+            this.logger.info(`onconnectionstatechange: ${this.rtcPeerConnection.connectionState}`);
+            switch (this.rtcPeerConnection.connectionState) {
+                case 'connected':
+                    this.deferred.resolve();
+                    break;
+            
+                default:
+                    break;
+            }
+        }
 
         this.rtcPeerConnection = rtcPeerConnection;
 
@@ -250,13 +260,13 @@ class P2pConnection {
 
 
     onConnectionStateChange(ev) {
-        logger.info(this.rtcPeerConnection.connectionState);
+        this.logger.info(this.rtcPeerConnection.connectionState);
     }
 
     addIceCandidate(rtcPeerConnection) {
         return new Promise((resolve, reject) => {
             rtcPeerConnection.onicecandidate = e => {
-                logger.info(`e.candidate ${JSON.stringify(e.candidate)}`)
+                this.logger.info(`e.candidate ${JSON.stringify(e.candidate)}`)
                 try {
                     if (!e.candidate) {
                         resolve();
@@ -272,39 +282,39 @@ class P2pConnection {
 
     setMediaStream(stream) {
         try {
-            logger.info(`setMediaStream stream:${stream}`)
+            this.logger.info(`setMediaStream stream:${stream}`)
             if (stream && stream == this.local.stream) {
-                logger.info('same stream');
+                this.logger.info('same stream');
                 return;
             }
 
             this.local.stream = stream;
 
             if (stream) {
-                logger.info('adding tracks..')
+                this.logger.info('might be adding tracks..')
                 let tracks = stream.getTracks();
 
                 let hasVideoTrack = !!this.local.rtpTracks.video;
                 for (const track of tracks) {
                     if (hasVideoTrack) {
                         if (track.kind === 'video') {
-                            logger.info(`replacing local video track ${this.local.rtpTracks.video.track.id } with ${track.id}`)
+                            this.logger.info(`replacing local video track ${this.local.rtpTracks.video.track.id } with ${track.id}`)
                             this.local.rtpTracks.video.replaceTrack(track);
                         }
                     }
                     else {
-                        logger.info(`adding local track ${track.id}`);
+                        this.logger.info(`adding local track ${track.id}`);
                         let rtpTrack = this.rtcPeerConnection.addTrack(track, stream);
                         this.local.addRtpTrack(rtpTrack);   
                     }
                 }
             }
             else {
-                logger.warn('no stream :(');
+                this.logger.warn('no stream :(');
             }
         }
         catch (ex) {
-            logger.error(ex);
+            this.logger.error(ex);
         }
     }
 
@@ -326,7 +336,7 @@ class P2pConnection {
     }
 
     setOtherRemoteTrack(remoteId, track, stream) {
-        logger.info(`on another stream from different connection / peer ${remoteId}`)
+        this.logger.info(`on another stream from different connection / peer ${remoteId} with stream ${track.id}`)
         this.rtcPeerConnection.addTrack(track, stream);
     }
     

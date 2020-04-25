@@ -26,6 +26,7 @@ let template = html`
             <!-- <video id="remoteVideo" class="video" autoplay></video> -->
         </div>
         <div id="callButtonsContainer">
+            <icon-button id="btnEnableFullScreen"></icon-button>
             <icon-button id="btnEnableVideo"></icon-button>
             <icon-button id="btnEnableMic"></icon-button>
             <icon-button id="btnEnableScreenShare"></icon-button>
@@ -175,6 +176,14 @@ let style = html`
             transform: scale(1);
         }
     }
+
+    @media (orientation:portrait)  {
+        .remoteVideoWrapper:first-child:nth-last-child(2),
+        .remoteVideoWrapper:first-child:nth-last-child(2) ~ .remoteVideoWrapper {
+            width:100%;
+            height:50%;
+        }
+    }
 </style>`;
 
 class MainComponent extends MdcComponent {
@@ -196,11 +205,11 @@ class MainComponent extends MdcComponent {
         logger.onLog(() => this.onLog);
         this.initP2pManager();
         this.connectServer();
-        document.addEventListener('visibilitychange', () => {
+        /*document.addEventListener('visibilitychange', () => {
             if (!document.hidden && this.p2pManager.hasPeersOrWsConnection()) {
                 this.connectServer();
             }
-        })
+        })*/
 
         this.initCallButtons();
     }
@@ -247,7 +256,7 @@ class MainComponent extends MdcComponent {
 
     createRemoteVideo() {
         let video = document.createElement('video');
-        video.muted = true;
+        //video.muted = true;
         video.autoplay = true;
         video.className = 'remoteVideo';
 
@@ -269,7 +278,7 @@ class MainComponent extends MdcComponent {
     }
 
     updateVideoLayout() {
-        let vidCount = this.elements.remoteVideosContainer.querySelectorAll('video').length;
+        let vidCount = this.elements.remoteVideosContainer.children.length;
         let colCount = Math.ceil(Math.sqrt(vidCount));
         let rowCount = Math.ceil(vidCount / colCount);
         let el =  this.elements.remoteVideosContainer;
@@ -384,14 +393,15 @@ class MainComponent extends MdcComponent {
     }
 
     initCallButtons() {
+        this.initBtnEnableVideo();
+        this.initBtnEnableMic();
+        this.initBtnEnableScreenShare();
+        this.initBtnEnableFullScreen();
+    }
+
+    initBtnEnableVideo() {
         let btnEnableVideo = this.elements.btnEnableVideo;
-        let btnEnableMic = this.elements.btnEnableMic;
-        let btnEnableScreenShare = this.elements.btnEnableScreenShare;
-
         btnEnableVideo.setIcon('videocam');
-        btnEnableMic.setIcon('mic');
-        btnEnableScreenShare.setIcon('screen_share');
-
         btnEnableVideo.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getVideoTracks() : [];
             track.enabled = !track.enabled;
@@ -399,26 +409,55 @@ class MainComponent extends MdcComponent {
             btnEnableVideo.setIcon(icon);
         })
 
+    }
+
+    initBtnEnableMic() {
+        let btnEnableMic = this.elements.btnEnableMic;
+        btnEnableMic.setIcon('mic');
         btnEnableMic.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getAudioTracks() : [];
             track.enabled = !track.enabled;
             let icon = track.enabled ? 'mic' : 'mic_off' 
             btnEnableMic.setIcon(icon);
         })
+    }
 
-        btnEnableScreenShare.addEventListener('click', async () => {
-            if (this.displayStream) {
-                this.displayStream.getTracks().forEach(t => t.stop());
-                this.displayStream = null;
-                this.p2pManager.setLocalStream(cameraManager.stream);
+    initBtnEnableScreenShare() {
+        if (navigator.mediaDevices.getDisplayMedia) {
+            let btnEnableScreenShare = this.elements.btnEnableScreenShare;
+            btnEnableScreenShare.setIcon('screen_share');
+            btnEnableScreenShare.addEventListener('click', async () => {
+                if (this.displayStream) {
+                    this.displayStream.getTracks().forEach(t => t.stop());
+                    this.displayStream = null;
+                    this.p2pManager.setLocalStream(cameraManager.stream);
+                }
+                else {
+                    this.displayStream = await navigator.mediaDevices.getDisplayMedia();
+                    this.p2pManager.setLocalStream(this.displayStream);
+                }
+
+                let icon = this.displayStream ? 'screen_share' : 'stop_screen_share' ;
+                btnEnableScreenShare.setIcon(icon);
+            })
+        }
+        else {
+            this.elements.btnEnableScreenShare.hidden = true;
+        }
+    }
+
+    initBtnEnableFullScreen() {
+        let btnEnableFullScreen = this.elements.btnEnableFullScreen;
+        btnEnableFullScreen.setIcon('fullscreen');
+        btnEnableFullScreen.addEventListener('click', async () => {
+            if (document.fullscreen) {
+                document.exitFullscreen();
             }
             else {
-                this.displayStream = await navigator.mediaDevices.getDisplayMedia();
-                this.p2pManager.setLocalStream(this.displayStream);
+                await this.tryFullScreen();
             }
-
-            let icon = this.displayStream ? 'screen_share' : 'stop_screen_share' ;
-            btnEnableScreenShare.setIcon(icon);
+            let icon = document.fullscreen ? 'fullscreen' : 'fullscreen_exit' 
+            btnEnableFullScreen.setIcon(icon);
         })
     }
 }

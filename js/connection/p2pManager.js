@@ -61,9 +61,9 @@ class P2pManager {
         let p2pConnection = null;
         try {
             await this.connectSignalingServer();
-            let existingConnection = this.connections.get(remoteId);
-            if (existingConnection) {
-                p2pConnection = existingConnection;
+            p2pConnection = this.connections.get(remoteId);
+            if (p2pConnection) {
+                logger.info(`negotiateBack state:${p2pConnection.rtcPeerConnection.connectionState}`);
                 p2pConnection.negotiateBack(incomingOffer);
             }
             else {
@@ -77,14 +77,14 @@ class P2pManager {
 
                 await p2pConnection.connectFromOffer(incomingOffer);
 
-                if (this.isHost) {
+                if (this.localStream) {
+                    p2pConnection.setMediaStream(this.localStream);
+                }
+
+                if (this.isHost) { 
                     setTimeout(() => {
                         this.forwardExistingRemotesTracksToNewRemote(p2pConnection);
                     }, 0);
-                }
-
-                if (this.localStream) {
-                    p2pConnection.setMediaStream(this.localStream);
                 }
 
                 setTimeout(() => this.onNewConnection(p2pConnection), 0);
@@ -104,7 +104,10 @@ class P2pManager {
             this.connections.forEach(con => {
                 if (con != p2pConnection) {
                     logger.info(`transmitting the new peer ${con.remote.id} to other existing connections`)
-                    con.setOtherRemoteTrack(p2pConnection.remote.id, track, stream);
+                    if (con.rtcPeerConnection.connectionState === "connected") {
+                        con.setOtherRemoteTrack(p2pConnection.remote.id, track, stream);
+
+                    }
                 }
             });
         }
@@ -115,14 +118,16 @@ class P2pManager {
             logger.info('forwardExistingRemotesTracksToNewRemote')
             this.connections.forEach(con => {
                 if (p2pConnection !== con) {
-                    logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
                     // transmit all existing other peers tracks
-                    if (con.remote.rtpTracks.video) {
-                        p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
-                    }
+                    if (con.rtcPeerConnection.connectionState === "connected") {
+                        logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
+                        if (con.remote.rtpTracks.video) {
+                            p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
+                        }
 
-                    if (con.remote.rtpTracks.audio) {
-                        p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
+                        if (con.remote.rtpTracks.audio) {
+                            p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
+                        }
                     }
                 }
             });
