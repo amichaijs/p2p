@@ -100,37 +100,42 @@ class P2pManager {
 
     forwardNewRemoteTracksToOtherPeers(p2pConnection, track, stream) {
         if (this.connections.size > 1) {
-            logger.info('forwardNewRemoteTracksToOtherPeers');
-            this.connections.forEach(con => {
-                if (con != p2pConnection) {
-                    logger.info(`transmitting the new peer ${con.remote.id} to other existing connections`)
-                    if (con.rtcPeerConnection.connectionState === "connected") {
-                        con.setOtherRemoteTrack(p2pConnection.remote.id, track, stream);
+            setTimeout(() => {
+                logger.info('forwardNewRemoteTracksToOtherPeers');
+                this.connections.forEach(con => {
+                    if (con != p2pConnection) {
+                        logger.info(`transmitting the new peer ${con.remote.id} to other existing connections`)
+                        if (con.rtcPeerConnection.connectionState === "connected") {
+                            con.setOtherRemoteTrack(p2pConnection.remote.id, track, stream);
 
+                        }
                     }
-                }
-            });
+                });
+            }, 5000);
         }
     }
 
     forwardExistingRemotesTracksToNewRemote(p2pConnection) {
         if (this.connections.size > 1) {
-            logger.info('forwardExistingRemotesTracksToNewRemote')
-            this.connections.forEach(con => {
-                if (p2pConnection !== con) {
-                    // transmit all existing other peers tracks
-                    if (con.rtcPeerConnection.connectionState === "connected") {
-                        logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
-                        if (con.remote.rtpTracks.video) {
-                            p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
-                        }
-
-                        if (con.remote.rtpTracks.audio) {
-                            p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
+            setTimeout(() => {
+                logger.info('forwardExistingRemotesTracksToNewRemote')
+                this.connections.forEach(con => {
+                    if (p2pConnection !== con) {
+                        // transmit all existing other peers tracks
+                        if (con.rtcPeerConnection.connectionState === "connected") {
+                            logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
+                            if (con.remote.rtpTracks.video) {
+                                p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
+                            }
+    
+                            if (con.remote.rtpTracks.audio) {
+                                p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
+                            }
                         }
                     }
-                }
-            });
+                });
+            }, 5000);
+
         }
     }
 
