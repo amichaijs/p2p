@@ -15,6 +15,10 @@ let toHexString = function (num) {
     return num.toString(16).padStart(2, '0');
 }
 
+let isMobile = function() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 class EventManager {
     /**@param {string[]} eventNames */
     constructor(...eventNames) {
@@ -93,6 +97,7 @@ class Deferred extends Promise {
 export {
     requestId,
     generateRandomId,
+    isMobile,
     Deferred,
     EventManager
 }

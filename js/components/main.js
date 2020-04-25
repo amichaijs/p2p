@@ -1,5 +1,5 @@
 import { MdcComponent, defineComponent } from './mdc-component.js'
-import { generateRandomId } from '../helpers.js'
+import { isMobile } from '../helpers.js'
 import { P2pManager } from '../connection/p2pManager.js';
 import { logger } from '../logger.js';
 import { cameraManager } from '../cameraManager.js';
@@ -423,7 +423,7 @@ class MainComponent extends MdcComponent {
     }
 
     initBtnEnableScreenShare() {
-        if (navigator.mediaDevices.getDisplayMedia) {
+        if (!isMobile()) {
             let btnEnableScreenShare = this.elements.btnEnableScreenShare;
             btnEnableScreenShare.setIcon('screen_share');
             btnEnableScreenShare.addEventListener('click', async () => {

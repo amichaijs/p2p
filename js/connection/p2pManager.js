@@ -141,7 +141,7 @@ class P2pManager {
         p2pConnection.on('disconnected', () => {
             logger.info(`deleting connection ${remoteId}`);
             this.connections.delete(remoteId);
-            this.removeForwardedTracksFromDeadConnection();
+            this.removeForwardedTracksFromDeadConnection(p2pConnection);
         });
 
         return p2pConnection;

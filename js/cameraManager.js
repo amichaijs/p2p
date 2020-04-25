@@ -24,6 +24,10 @@ class CameraManager {
     async setCamera(facingMode = FacingMode.user) {
         let changed = !this.stream || this.facingMode !== facingMode
         if (changed) {
+            if (this.stream) {
+                this.stopCamera();
+            }
+
             this.readyPromise = new Promise(async (resolve, reject) => {
                 try {
                     let includeAudio = !this.audioTrack
@@ -49,6 +53,12 @@ class CameraManager {
 
 
         return this.readyPromise;
+    }
+
+    stopCamera() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+        }
     }
 
     on(eventName, callback) {
