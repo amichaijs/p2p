@@ -24,6 +24,7 @@ class CameraManager {
     async setCamera(facingMode = FacingMode.user) {
         let changed = !this.stream || this.facingMode !== facingMode
         if (changed) {
+            this.facingMode = facingMode;
             if (this.stream) {
                 this.stopCamera();
             }
@@ -58,6 +59,7 @@ class CameraManager {
     stopCamera() {
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
         }
     }
 

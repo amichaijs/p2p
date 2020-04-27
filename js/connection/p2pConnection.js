@@ -76,9 +76,6 @@ class P2pConnection {
             let stream = await cameraManager.setCamera();
             this.setMediaStream(stream);
 
-            this.logger.info(`start listen ice candidate`);
-            this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
-
             await this.negotiate();
             this.finishedFirstConnection = true;
             
@@ -94,6 +91,9 @@ class P2pConnection {
         if (this.negotiating) {
             return;
         };
+
+        this.logger.info(`start listen ice candidate`);
+        this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
         
         this.logger.info(`adding creating offer`);
         let localOffer = await this.rtcPeerConnection.createOffer(); // can contain constraints, like to support audio, video etc
@@ -123,8 +123,6 @@ class P2pConnection {
         let stream = await cameraManager.setCamera();
         this.setMediaStream(stream);
 
-        this.logger.info(`start listen ice candidate`);
-        this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
         await this.negotiateBack(incomingOffer);
 
         this.finishedFirstConnection = true;
@@ -135,6 +133,9 @@ class P2pConnection {
 
     async negotiateBack(incomingOffer) {
         try {   
+            this.logger.info(`start listen ice candidate`);
+            this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
+
             this.logger.info(`setting remote desc`);
             await this.rtcPeerConnection.setRemoteDescription(incomingOffer);
 

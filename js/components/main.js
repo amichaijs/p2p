@@ -325,9 +325,7 @@ class MainComponent extends MdcComponent {
 
         cameraManager.on('cameraChange', () => {
             this.p2pManager.setLocalStream(cameraManager.stream);
-            if (!this.elements.localVideo.srcObject) {
-                this.elements.localVideo.srcObject = cameraManager.stream;
-            }
+            this.elements.localVideo.srcObject = cameraManager.stream;
         })
     }
 
@@ -446,6 +444,7 @@ class MainComponent extends MdcComponent {
         }
     }
 
+
     initBtnEnableFullScreen() {
         let btnEnableFullScreen = this.elements.btnEnableFullScreen;
         btnEnableFullScreen.setIcon('fullscreen');
@@ -456,7 +455,10 @@ class MainComponent extends MdcComponent {
             else {
                 await this.tryFullScreen();
             }
-            let icon = document.fullscreen ? 'fullscreen' : 'fullscreen_exit' 
+        })
+
+        document.addEventListener('fullscreenchange', () => {
+            let icon = document.fullscreen ? 'fullscreen_exit' : 'fullscreen';
             btnEnableFullScreen.setIcon(icon);
         })
     }
