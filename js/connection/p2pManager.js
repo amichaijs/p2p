@@ -51,7 +51,6 @@ class P2pManager {
             await this.connectSignalingServer();
             p2pConnection = this.createP2pConnection(remoteId);
             await p2pConnection.connect();
-            setTimeout(() => this.onNewConnection(p2pConnection), 0);
         }
         catch (ex) {
             logger.error(ex);
@@ -199,10 +198,6 @@ class P2pManager {
     }
 
     onDisconnectSignalingServer() {
-    }
-
-    /**@param  connection {P2pConnection} */
-    onNewConnection(connection) {
     }
 
     setLocalStream(stream) {

@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 window.html = function html(strings, ...values) {
     return String.raw({ raw: strings }, ...values)
 }
@@ -60,10 +62,12 @@ class EventManager {
 
     dispatchEvent(eventName, data) {
         let callbacksSet = this.events.get(eventName);
+        logger.info(`dispatching event ${eventName}, data: ${JSON.stringify(data)}, callbacks: ${callbacksSet.size}`);
         if (callbacksSet) {
             setTimeout(() => {
                 callbacksSet.forEach(callback => {
                     try {
+                        logger.info(`dispatching event ${eventName}, data: ${JSON.stringify(data)}, callback: ${callback}`);
                         callback(data);
                     }
                     catch (ex) {
