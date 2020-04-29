@@ -2,6 +2,7 @@ import { SignalingManager } from './signalingManager.js';
 import { P2pConnection } from './p2pConnection.js';
 import { logger } from '../logger.js';
 import { cameraManager } from '../cameraManager.js';
+import { EventManager } from '../helpers.js';
 
 /**
  * Bridges between p2pConnections and the signalingServer to create and accept connections
@@ -21,6 +22,15 @@ class P2pManager {
         this.localStream = null;
         this.localVideoElement = localVideoElement;
         this.isHost = false;
+        this.events = new EventManager('connectionCreated');
+    }
+
+    on(eventName, callback) {
+        return this.events.on(eventName, callback);
+    }
+
+    off(eventName, callback) {
+        return this.events.off(eventName, callback);
     }
 
     async connectSignalingServer() {
@@ -70,24 +80,20 @@ class P2pManager {
                 p2pConnection = this.createP2pConnection(remoteId);
 
                 if (this.isHost) {
-                    p2pConnection.onRemoteTrack = (track, stream) => {
+                    p2pConnection.on('remoteTrack',({ track, stream }) => {
                         this.forwardNewRemoteTracksToOtherPeers(p2pConnection, track, stream);
-                    }
+                    })
                 }
 
-                await p2pConnection.connectFromOffer(incomingOffer);
+                let streams = this.getExistingStreams(p2pConnection);
+
+                await p2pConnection.connectFromOffer(incomingOffer, streams);
 
                 if (this.localStream) {
                     p2pConnection.setMediaStream(this.localStream);
                 }
 
-                if (this.isHost) { 
-                    setTimeout(() => {
-                        this.forwardExistingRemotesTracksToNewRemote(p2pConnection);
-                    }, 0);
-                }
-
-                setTimeout(() => this.onNewConnection(p2pConnection), 0);
+                //setTimeout(() => this.onNewConnection(p2pConnection), 0);
             }
         }
         catch (ex) {
@@ -96,6 +102,16 @@ class P2pManager {
         }
 
         return p2pConnection;
+    }
+
+    getExistingConnections() {
+        let cons = Array.from(this.connections.values()).filter(con => con.isConnected());
+        return cons;
+    }
+
+    getExistingStreams(exceptP2pConnection = null) {
+        let streams = this.isHost ? this.getExistingConnections().filter(con => con != exceptP2pConnection).map(con => con.remote.stream) : null;
+        return streams;
     }
 
     forwardNewRemoteTracksToOtherPeers(p2pConnection, track, stream) {
@@ -113,28 +129,6 @@ class P2pManager {
         }
     }
 
-    forwardExistingRemotesTracksToNewRemote(p2pConnection) {
-        if (this.connections.size > 1) {
-            logger.info('forwardExistingRemotesTracksToNewRemote')
-            this.connections.forEach(con => {
-                if (p2pConnection !== con) {
-                    // transmit all existing other peers tracks
-                    if (con.rtcPeerConnection.connectionState === "connected") {
-                        logger.info(`transmitting existing connections tacks to the new peer ${con.remote.id}`)
-                        if (con.remote.rtpTracks.video) {
-                            p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.video.track, con.remote.stream)
-                        }
-
-                        if (con.remote.rtpTracks.audio) {
-                            p2pConnection.setOtherRemoteTrack(con.remote.id, con.remote.rtpTracks.audio.track, con.remote.stream)
-                        }
-                    }
-                }
-            });
-        }
-    }
-
-
     createP2pConnection(remoteId) {
         let p2pConnection = new P2pConnection(this.localId, remoteId, this.isHost, this.signalingManager, this.remoteVideoElement);
         this.connections.set(remoteId, p2pConnection);
@@ -144,28 +138,31 @@ class P2pManager {
             this.removeForwardedTracksFromDeadConnection(p2pConnection);
         });
 
+        this.events.dispatchEvent('connectionCreated', p2pConnection);
+
         return p2pConnection;
     }
 
     removeForwardedTracksFromDeadConnection(p2pConnection) {
         // each connection that has forwaded tracks create its own senders that wraps the same track object.
         // remotes have removetrack event on their side.
+
+        //TODO remote.stream
         if (p2pConnection.remote.stream) {
             let tracks = p2pConnection.remote.stream.getTracks();
-            logger.info('remove existing stream from conference')
+            logger.info(`remove existing stream from conference ${p2pConnection.remote.stream.id}`)
+
             this.connections.forEach(con => {
-                let senders = con.rtcPeerConnection.getSenders()
-                logger.info(`before remove from con ${con.remote.id}`)
-                for (let sender of senders) {
-                    if (tracks.includes(sender.track)) {
-                        logger.info(`remove track from con ${sender}`)
-                        con.rtcPeerConnection.removeTrack(sender);
-                    }
-                    else {
-                        logger.info(`irrelevant track from con ${sender}`)
-                    }
-                }
+                con.stopForwardingTracks(p2pConnection.remote.stream, tracks);
             })
+
+            for (let track of tracks) {
+                p2pConnection.remote.stream.removeTrack(track);
+            }
+
+            // for host
+            p2pConnection.remote.stream.dispatchEvent(new Event('removetrack'));
+
         }
     }
 

@@ -9,7 +9,6 @@ const DataChannels = {
 class PeerInfo {
     constructor(id, videoElement) {
         this.id = id
-        this.videoElement = videoElement || null;
         this.stream = null;
         this.rtpTracks = {
             video: null,
@@ -27,11 +26,6 @@ class PeerInfo {
 
     }
 
-    playVideo() {
-        if (this.videoElement) {
-            this.videoElement.srcObject = this.stream;
-        }
-    }
 }
 
 class P2pConnection {
@@ -44,8 +38,11 @@ class P2pConnection {
         this.negotiating = false;
         this.isHost = isHost;
         this.deferred = new Deferred();
-        this.events = new EventManager('disconnected', 'conferenceTrack');
+        this.events = new EventManager('disconnected', 'remoteStream', 'remoteTrack');
         this.finishedFirstConnection = false;
+        /**@type Set<MediaStream> */
+        this.remoteStreams = new Set();
+        this.useIceNegotiation = true;
     }
 
     on(eventName, callback) {
@@ -84,6 +81,7 @@ class P2pConnection {
         }
         catch (ex) {
             this.logger.error(ex);
+            throw (ex);
         }
     }
 
@@ -92,8 +90,14 @@ class P2pConnection {
             return;
         };
 
-        this.logger.info(`start listen ice candidate`);
-        this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
+        if (this.useIceNegotiation) {
+            this.logger.info(`iceConnectionState ${this.rtcPeerConnection.iceConnectionState}`);
+            this.logger.info(`start listen ice candidate`);
+            this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
+        }
+        else {
+            this.logger.info('dont useIceNegotiation');
+        }
         
         this.logger.info(`adding creating offer`);
         let localOffer = await this.rtcPeerConnection.createOffer(); // can contain constraints, like to support audio, video etc
@@ -114,10 +118,9 @@ class P2pConnection {
 
     }
 
-    async connectFromOffer(incomingOffer) {
-        this.isHost = true;
-
+    async connectFromOffer(incomingOffer, remotePeerStreams) {
         this.logger.info(`incoming offer`, incomingOffer);
+        
         await this.initConnection();
 
         let stream = await cameraManager.setCamera();
@@ -128,13 +131,25 @@ class P2pConnection {
         this.finishedFirstConnection = true;
 
         this.logger.info(`finish connection`);
+
+        if (this.isHost && remotePeerStreams && remotePeerStreams.length > 0) {
+            this.forwardStreamsFromOtherPeers(remotePeerStreams);
+        }
+
         return this.deferred;
     }
 
     async negotiateBack(incomingOffer) {
         try {   
-            this.logger.info(`start listen ice candidate`);
-            this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
+
+            if (this.useIceNegotiation) {
+                this.logger.info(`start listen ice candidate`);
+                this.logger.info(`iceConnectionState ${this.rtcPeerConnection.iceConnectionState}`);
+                this.icePromise = this.addIceCandidate(this.rtcPeerConnection);
+            }
+            else {
+                this.logger('dont useIceNegotiation');
+            }
 
             this.logger.info(`setting remote desc`);
             await this.rtcPeerConnection.setRemoteDescription(incomingOffer);
@@ -171,32 +186,31 @@ class P2pConnection {
         let rtcPeerConnection = new RTCPeerConnection({ iceServers: iceServers });
 
         rtcPeerConnection.ontrack = ev => {
-            this.logger.info('ontrack');
             let [inComingStream] = ev.streams
-            this.remote.addRtpTrack(ev.receiver);
-            let isConferenceTrack = !this.isHost && ev.track.kind === "video" && inComingStream !== this.remote.stream;
-            if (!this.remote.stream) {
-                this.remote.stream = inComingStream || new MediaStream();
+            this.logger.info(`ontrack ${ev.track.kind} and ${ev.track.id} and streamId ${inComingStream ? inComingStream.id : 'null stream'}`)
+
+            //TODO see if need to support streamless tracks / inbound. new MediaStream()
+
+            this.events.dispatchEvent('remoteTrack', { track: ev.track, stream: inComingStream });
+
+            // dispatch if stream is new, (can come from both audio and video tracks)
+            if (!this.remoteStreams.has(inComingStream)) {
+                this.logger.info('on stream')
+                if (!this.remote.stream) {
+                    this.remote.stream = inComingStream;
+                    this.remote.stream.peerId = this.remote.id // for debugging;
+                }
+
+                this.remoteStreams.add(inComingStream);
+                this.events.dispatchEvent('remoteStream', { track: ev.track, stream: inComingStream });
             }
 
-            // if streamless track / inbound, create one and build it from tracks.
-            if (!inComingStream) {
-                this.remote.stream.addTrack(ev.track);
-            }
-
-            this.remote.playVideo();
-
-            if (isConferenceTrack) {
-                this.logger.info(`conferenceTrack ${ev.track.kind} and ${ev.track.id}`)
-                this.events.dispatchEvent('conferenceTrack', { track: ev.track, stream: inComingStream });
-            } 
-
-            this.onRemoteTrack(ev.track, inComingStream);   
+            //TODO play video from main
         }
 
         // mostly for when new track added.
-        rtcPeerConnection.onnegotiationneeded = e => {
-            this.logger.info('onnegotiationneeded');
+        rtcPeerConnection.onnegotiationneeded = async e => {
+            this.logger.info(`onnegotiationneeded: ${this.rtcPeerConnection.iceConnectionState}`);
             if (!this.finishedFirstConnection) {
                 this.logger.info('finishedFirstConnection = false');
             }
@@ -205,7 +219,8 @@ class P2pConnection {
 
             }
             else {
-                this.negotiate();
+                await this.negotiate();
+                this.useIceNegotiation = true;
             }
         }
 
@@ -331,18 +346,40 @@ class P2pConnection {
 
     }
 
-    setRemoteVideo(videoElement) {
-        this.remote.videoElement = videoElement;
-        this.remote.playVideo();
-    }
-
     setOtherRemoteTrack(remoteId, track, stream) {
         this.logger.info(`on another stream from different connection / peer ${remoteId} with stream ${track.id}`)
         this.rtcPeerConnection.addTrack(track, stream);
     }
-    
-    onRemoteTrack(track, stream) {
 
+    forwardStreamsFromOtherPeers(/**@type MediaStream[] */ remoteStreams) {
+        //streams.forEach(s => this.remoteStreams.add(s));
+        for (let remoteStream of remoteStreams) {
+            this.logger.info(`forwarding stream ${remoteStream.id} of peer ${remoteStream.peerId}`)
+            for (let track of remoteStream.getTracks()) {
+                this.logger.info(`forwarding track ${track.id}  of peer ${remoteStream.peerId}`)
+                this.rtcPeerConnection.addTrack(track, remoteStream);   
+            }
+        }
+    }
+
+    stopForwardingTracks(stream, forwardedTracks) {
+        let senders = this.rtcPeerConnection.getSenders()
+        this.logger.info(`stopForwardingStream - before remove from connection stream ${stream.id} of peer ${stream.peerId}`)
+        this.useIceNegotiation = false;
+        for (let sender of senders) {
+            let senderTrack = sender.track; // later becomes null;
+            if (forwardedTracks.includes(senderTrack)) {
+                this.logger.info(`stopForwardingStream - remove track by sender ${senderTrack.id}`)
+                this.rtcPeerConnection.removeTrack(sender);
+            }
+            else {
+                this.logger.info(`stopForwardingStream - irrelevant track ${senderTrack.id}`)
+            }
+        }
+    }
+
+    isConnected() {
+        return this.rtcPeerConnection != null && this.rtcPeerConnection.connectionState === "connected";
     }
 
     destroy() {

@@ -290,21 +290,15 @@ class MainComponent extends MdcComponent {
         this.p2pManager = new P2pManager(signalServerUrl);
         this.p2pManager.localVideoElement = this.elements.localVideo;
         //this.p2pManager.remoteVideoElement = this.elements.remoteVideo;
-        this.p2pManager.onNewConnection = async connection => {
+        this.p2pManager.on('connectionCreated',async connection => {
             this.elements.welcome.hidden = true;
             this.elements.videoContainer.hidden = false;
             
             await cameraManager.setCamera();
-            //connection.setMediaStream(cameraManager.stream)
-            let { wrapper,  video: remoteVideo } = this.createRemoteVideo();
-            connection.setRemoteVideo(remoteVideo);
+ 
 
-            connection.on('disconnected', () => {
-                console.info(`peer ${connection.remote.id} disconnected - removing video`)
-                this.removeVideo(wrapper);
-            });
-
-            connection.on('conferenceTrack', ({ track, stream }) => {
+            connection.on('remoteStream', ({ track, stream }) => {
+                logger.info(`remoteStream trackId: ${track.id } streamId: ${stream ? stream.id : 'null stream'}`);
                 let { wrapper: conferenceWrapper, video: conferenceVideo } = this.createRemoteVideo();
                 conferenceVideo.srcObject = stream;
                 stream.addEventListener('removetrack', ev => {
@@ -318,7 +312,7 @@ class MainComponent extends MdcComponent {
             // this.elements.localVideo.onloadedmetadata = () => {
             //     this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
             // }
-        };
+        });
         this.p2pManager.onDisconnectSignalingServer = () => {
             //TODo
         }
@@ -375,13 +369,18 @@ class MainComponent extends MdcComponent {
     }
 
     async connectPeer() {
-        this.tryFullScreen();
         if (!this.remoteId) {
             return;
         } 
 
         this.elements.welcomeTitle.setValue('Connecting peer...')
-        let res = await this.p2pManager.connectPeer(this.remoteId);
+        try {
+            let res = await this.p2pManager.connectPeer(this.remoteId);
+        }
+        catch (ex) {
+            logger.error(ex);
+        }
+        this.tryFullScreen();
     }
 
     async tryFullScreen() {

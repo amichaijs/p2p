@@ -86,8 +86,8 @@ class SignalingManager {
         if (!message) {
             error = 'Received Empty message';
         }
-        else if(message.errorCode) {
-            error = `error from ws: ${message.errorCode}`;
+        else if(message.error) {
+            error = `error from ws: ${message.error}`;
         }
         else if (!message || !message.type) {
             error = 'Received Invalid message';
@@ -102,7 +102,8 @@ class SignalingManager {
         else if (message.from && message.type == MessageType.Answer) {
             promiseKey = message.from;
         }
-        else {
+        
+        if (promiseKey === null && message) {
             promiseKey = message.to;
         }
 

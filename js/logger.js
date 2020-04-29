@@ -12,6 +12,7 @@ let callbacks = [];
 class Logger {
     constructor(name) {
         this.name = name || '';
+        this._bindThis();
     }
 
     _log(msg, level, time) {
@@ -38,6 +39,12 @@ class Logger {
 
     onLog(callback) {
         callbacks.push(callback);
+    }
+
+    _bindThis() {
+        this.info = this.info.bind(this);
+        this.warn = this.warn.bind(this);
+        this.error = this.error.bind(this);
     }
 }
 
