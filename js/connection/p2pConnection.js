@@ -363,17 +363,18 @@ class P2pConnection {
     }
 
     stopForwardingTracks(stream, forwardedTracks) {
+        //TODO: sometimes still not working on another peer.
         let senders = this.rtcPeerConnection.getSenders()
         this.logger.info(`stopForwardingStream - before remove from connection stream ${stream.id} of peer ${stream.peerId}`)
         this.useIceNegotiation = false;
         for (let sender of senders) {
-            let senderTrack = sender.track; // later becomes null;
-            if (forwardedTracks.includes(senderTrack)) {
-                this.logger.info(`stopForwardingStream - remove track by sender ${senderTrack.id}`)
+            let senderTrack = sender.track; // becomes null on removed;
+            if (senderTrack && forwardedTracks.includes(senderTrack)) {
+                this.logger.info(`stopForwardingStream - remove track by sender ${senderTrack ? senderTrack.id : 'null track'}`)
                 this.rtcPeerConnection.removeTrack(sender);
             }
             else {
-                this.logger.info(`stopForwardingStream - irrelevant track ${senderTrack.id}`)
+                this.logger.info(`stopForwardingStream - irrelevant track ${senderTrack ? senderTrack.id : 'null track'}`)
             }
         }
     }
