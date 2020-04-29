@@ -300,11 +300,10 @@ class MainComponent extends MdcComponent {
         this.p2pManager = new P2pManager(isHost, signalServerUrl);
         this.p2pManager.localVideoElement = this.elements.localVideo;
         //this.p2pManager.remoteVideoElement = this.elements.remoteVideo;
-        this.p2pManager.on('connectionCreated',async connection => {
+        this.p2pManager.on('connectionCreated', connection => {
+            logger.info(`connectionCreated ${connection.remote.id}`)
             this.elements.welcome.hidden = true;
             this.elements.videoContainer.hidden = false;
-            
-            await cameraManager.setCamera();
  
             let { videoWrapper, videoElement } = this.createRemoteVideo();
 
@@ -316,6 +315,8 @@ class MainComponent extends MdcComponent {
             connection.on('disconnected', () => {
                 this.removeVideo(videoWrapper);
             })
+
+            cameraManager.setCamera();
             // not support in android.. yet
             // this.elements.localVideo.onloadedmetadata = () => {
             //     this.elements.localVideo.requestPictureInPicture().then(logger.info).catch(logger.error);
