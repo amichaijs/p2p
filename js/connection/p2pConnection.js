@@ -6,8 +6,12 @@ const DataChannels = {
     Communication: 0
 }
 
+const PeerMessageType = {
+    RequestConnectToOtherPeer: 'request-connect-to-other-peer'
+}
+
 class PeerInfo {
-    constructor(id, videoElement) {
+    constructor(id) {
         this.id = id
         this.stream = null;
         this.rtpTracks = {
@@ -29,20 +33,22 @@ class PeerInfo {
 }
 
 class P2pConnection {
-    constructor(localId, remoteId, isHost, signalingManager, remoteVideoElement) {
+    constructor(localId, remoteId, isHost, signalingManager) {
         this.logger = new Logger(`[remote:${remoteId}]`);
         this.local = new PeerInfo(localId);
-        this.remote = new PeerInfo(remoteId, remoteVideoElement);
+        this.remote = new PeerInfo(remoteId);
         this.rtcPeerConnection = null;
         this.signalingManager = signalingManager;
         this.negotiating = false;
         this.isHost = isHost;
         this.deferred = new Deferred();
-        this.events = new EventManager('disconnected', 'remoteStream', 'remoteTrack');
+        this.communicationChannelDeferred = new Deferred();
+        this.events = new EventManager('disconnected', 'remoteStream', 'remoteTrack', 'request-connect-to-peer');
         this.finishedFirstConnection = false;
         /**@type Set<MediaStream> */
         this.remoteStreams = new Set();
         this.useIceNegotiation = true;
+
     }
 
     on(eventName, callback) {
@@ -53,11 +59,20 @@ class P2pConnection {
         return this.events.off(eventName, callback);
     }
 
-    setCommunicationChannel(channel) {
+    setCommunicationChannel(/**@type RTCDataChannel */ channel) {
         this.communicationChannel = channel;
-        this.communicationChannel.onopen = () => this.logger.info("communication channel open!");
+        this.communicationChannel.onopen = () => {
+            this.logger.info("communication channel open!");
+            this.communicationChannelDeferred.resolve();
+        } 
         this.communicationChannel.onmessage = e =>  {
                 this.logger.info(e.data);
+                let data = JSON.parse(e.data);
+                switch (data.type) {
+                    case PeerMessageType.RequestConnectToOtherPeer:
+                        this.events.dispatchEvent('request-connect-to-peer', { peerId: data.peerId });
+                        break;
+                }
         }
     }
 
@@ -67,8 +82,6 @@ class P2pConnection {
             await this.initConnection();
 
             this.logger.info(`adding data channel`);
-            let communicationChannel = this.rtcPeerConnection.createDataChannel('communication', { id: DataChannels.Communication});
-            this.setCommunicationChannel(communicationChannel);
 
             let stream = await cameraManager.setCamera();
             this.setMediaStream(stream);
@@ -128,13 +141,14 @@ class P2pConnection {
 
         await this.negotiateBack(incomingOffer);
 
+        let communicationChannel = this.rtcPeerConnection.createDataChannel('communication', { id: DataChannels.Communication});
+        this.setCommunicationChannel(communicationChannel);
+
+        
+
         this.finishedFirstConnection = true;
 
         this.logger.info(`finish connection`);
-
-        if (this.isHost && remotePeerStreams && remotePeerStreams.length > 0) {
-            this.forwardStreamsFromOtherPeers(remotePeerStreams);
-        }
 
         return this.deferred;
     }
@@ -183,7 +197,7 @@ class P2pConnection {
                 }
             ]
 
-        let rtcPeerConnection = new RTCPeerConnection({ iceServers: iceServers });
+        let rtcPeerConnection = new RTCPeerConnection({ sdpSemantics:'unified-plan', iceServers: iceServers });
 
         rtcPeerConnection.ontrack = ev => {
             let [inComingStream] = ev.streams
@@ -351,33 +365,41 @@ class P2pConnection {
         this.rtcPeerConnection.addTrack(track, stream);
     }
 
-    forwardStreamsFromOtherPeers(/**@type MediaStream[] */ remoteStreams) {
-        //streams.forEach(s => this.remoteStreams.add(s));
-        for (let remoteStream of remoteStreams) {
-            this.logger.info(`forwarding stream ${remoteStream.id} of peer ${remoteStream.peerId}`)
-            for (let track of remoteStream.getTracks()) {
-                this.logger.info(`forwarding track ${track.id}  of peer ${remoteStream.peerId}`)
-                this.rtcPeerConnection.addTrack(track, remoteStream);   
-            }
-        }
+    async requestRemoteConnectOtherPeer(otherPeerId) {
+        this.logger.info(`before send remote request to other peer ${otherPeerId}, waiting data channel`)
+        await this.communicationChannelDeferred;
+        let data = { type: PeerMessageType.RequestConnectToOtherPeer, peerId: otherPeerId }
+        this.logger.info(`channel ready, send remote request to other peer ${otherPeerId}`)
+        this.communicationChannel.send(JSON.stringify(data));
     }
 
-    stopForwardingTracks(stream, forwardedTracks) {
-        //TODO: sometimes still not working on another peer.
-        let senders = this.rtcPeerConnection.getSenders()
-        this.logger.info(`stopForwardingStream - before remove from connection stream ${stream.id} of peer ${stream.peerId}`)
-        this.useIceNegotiation = false;
-        for (let sender of senders) {
-            let senderTrack = sender.track; // becomes null on removed;
-            if (senderTrack && forwardedTracks.includes(senderTrack)) {
-                this.logger.info(`stopForwardingStream - remove track by sender ${senderTrack ? senderTrack.id : 'null track'}`)
-                this.rtcPeerConnection.removeTrack(sender);
-            }
-            else {
-                this.logger.info(`stopForwardingStream - irrelevant track ${senderTrack ? senderTrack.id : 'null track'}`)
-            }
-        }
-    }
+    // forwardStreamsFromOtherPeers(/**@type MediaStream[] */ remoteStreams) {
+    //     //streams.forEach(s => this.remoteStreams.add(s));
+    //     for (let remoteStream of remoteStreams) {
+    //         this.logger.info(`forwarding stream ${remoteStream.id} of peer ${remoteStream.peerId}`)
+    //         for (let track of remoteStream.getTracks()) {
+    //             this.logger.info(`forwarding track ${track.id}  of peer ${remoteStream.peerId}`)
+    //             this.rtcPeerConnection.addTrack(track, remoteStream);   
+    //         }
+    //     }
+    // }
+
+    // stopForwardingTracks(stream, forwardedTracks) {
+    //     //TODO: sometimes still not working on another peer.
+    //     let senders = this.rtcPeerConnection.getSenders()
+    //     this.logger.info(`stopForwardingStream - before remove from connection stream ${stream.id} of peer ${stream.peerId}`)
+    //     this.useIceNegotiation = false;
+    //     for (let sender of senders) {
+    //         let senderTrack = sender.track; // becomes null on removed;
+    //         if (senderTrack && forwardedTracks.includes(senderTrack)) {
+    //             this.logger.info(`stopForwardingStream - remove track by sender ${senderTrack ? senderTrack.id : 'null track'}`)
+    //             this.rtcPeerConnection.removeTrack(sender);
+    //         }
+    //         else {
+    //             this.logger.info(`stopForwardingStream - irrelevant track ${senderTrack ? senderTrack.id : 'null track'}`)
+    //         }
+    //     }
+    // }
 
     isConnected() {
         return this.rtcPeerConnection != null && this.rtcPeerConnection.connectionState === "connected";
