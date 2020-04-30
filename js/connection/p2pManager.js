@@ -144,14 +144,27 @@ class P2pManager {
         p2pConnection.on('connectionStateChange',  ({ connectionState }) => {
             if (connectionState === "failed") {
                 logger.info(`deleting connection ${remoteId}`);
+                let con = this.connections.get(remoteId);
                 this.connections.delete(remoteId);
+                
+                if (con && con.isOfferer) {
+                    setTimeout(() => {
+                        logger.info(`attempt reconnect failed connection of peer ${remoteId}`);
+                        this.connectPeer(remoteId);
+                    }, 2000)
+                }
             }
             //this.removeForwardedTracksFromDeadConnection(p2pConnection);
         });
         
         p2pConnection.on('request-connect-to-peer', ({ peerId }) => {
             logger.info(`requested by remote to connect to peerId ${peerId}`);
-            this.connectPeer(peerId);
+            if (!this.connections.has(peerId)) {
+                this.connectPeer(peerId);
+            }
+            else {
+                logger.warn(`already have connection for peer ${peerId}`)
+            }
         })
 
         this.events.dispatchEvent('connectionCreated', p2pConnection);

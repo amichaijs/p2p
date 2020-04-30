@@ -48,6 +48,7 @@ class P2pConnection {
         /**@type Set<MediaStream> */
         this.remoteStreams = new Set();
         this.useIceNegotiation = true;
+        this.isOfferer = false;
 
     }
 
@@ -78,6 +79,7 @@ class P2pConnection {
 
     async connect() {
         try {
+            this.isOfferer = true;
             this.logger.info(`start connect`);
             await this.initConnection();
 
