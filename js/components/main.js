@@ -139,6 +139,23 @@ let style = html`
         justify-content: flex-end;
     }
 
+    .disconnected::after {
+        content: "Ops...";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: inherit;
+        height: inherit;
+        font-size: 10em;
+        color: white;
+        -webkit-text-stroke: 1px black;
+        background: #0000009e;
+        vertical-align: -50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
     video.landscape {
         width: 100%;
     }
@@ -312,8 +329,20 @@ class MainComponent extends MdcComponent {
                 videoElement.srcObject = stream;
             });
 
-            connection.on('disconnected', () => {
-                this.removeVideo(videoWrapper);
+            connection.on('connectionStateChange', ({ connectionState }) => {
+                logger.info(`connectionStateChange ${connectionState}`)
+                switch (connectionState) {
+                    case 'disconnected':
+                        videoWrapper.classList.add('disconnected');
+                        break;
+                    case 'failed':
+                        this.removeVideo(videoWrapper);
+                        break;
+                    case 'connected':
+                        videoWrapper.classList.remove('disconnected');
+                        break;
+                }
+               
             })
 
             cameraManager.setCamera();

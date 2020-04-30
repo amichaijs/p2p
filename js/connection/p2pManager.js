@@ -141,9 +141,11 @@ class P2pManager {
     createP2pConnection(remoteId) {
         let p2pConnection = new P2pConnection(this.localId, remoteId, this.isHost, this.signalingManager);
         this.connections.set(remoteId, p2pConnection);
-        p2pConnection.on('disconnected', () => {
-            logger.info(`deleting connection ${remoteId}`);
-            this.connections.delete(remoteId);
+        p2pConnection.on('connectionStateChange',  ({ connectionState }) => {
+            if (connectionState === "failed") {
+                logger.info(`deleting connection ${remoteId}`);
+                this.connections.delete(remoteId);
+            }
             //this.removeForwardedTracksFromDeadConnection(p2pConnection);
         });
         

@@ -43,7 +43,7 @@ class P2pConnection {
         this.isHost = isHost;
         this.deferred = new Deferred();
         this.communicationChannelDeferred = new Deferred();
-        this.events = new EventManager('disconnected', 'remoteStream', 'remoteTrack', 'request-connect-to-peer');
+        this.events = new EventManager('connectionStateChange', 'remoteStream', 'remoteTrack', 'request-connect-to-peer');
         this.finishedFirstConnection = false;
         /**@type Set<MediaStream> */
         this.remoteStreams = new Set();
@@ -265,7 +265,7 @@ class P2pConnection {
                 //     }
                 // }
                 
-                this.onDisconnected();
+                //this.onDisconnected();
             }
         }
 
@@ -281,6 +281,8 @@ class P2pConnection {
                 default:
                     break;
             }
+
+            this.events.dispatchEvent('connectionStateChange', { connectionState: this.rtcPeerConnection.connectionState });
         }
 
         this.rtcPeerConnection = rtcPeerConnection;
