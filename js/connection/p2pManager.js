@@ -83,9 +83,9 @@ class P2pManager {
 
                 await p2pConnection.connectFromOffer(incomingOffer, streams);
 
-                if (!this.localStream) {
-                    p2pConnection.setMediaStream(this.localStream);
-                }
+                // if (!this.localStream) {
+                //     p2pConnection.setMediaStream(this.localStream);
+                // }
 
                 if (this.isHost) {
                     setTimeout(() => {
