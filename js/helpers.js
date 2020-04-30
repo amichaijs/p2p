@@ -67,7 +67,7 @@ class EventManager {
             setTimeout(() => {
                 callbacksSet.forEach(callback => {
                     try {
-                        logger.info(`dispatching event ${eventName}, data: ${JSON.stringify(data)}, callback: ${callback}`);
+                        logger.info(`dispatching event ${eventName}, data: ${JSON.stringify(data)}`);
                         callback(data);
                     }
                     catch (ex) {

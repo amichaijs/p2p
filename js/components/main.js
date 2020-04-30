@@ -335,6 +335,7 @@ class MainComponent extends MdcComponent {
                     case 'disconnected':
                         videoWrapper.classList.add('disconnected');
                         break;
+                    case 'closed':
                     case 'failed':
                         this.removeVideo(videoWrapper);
                         break;

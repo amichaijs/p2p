@@ -377,6 +377,15 @@ class P2pConnection {
         this.communicationChannel.send(JSON.stringify(data));
     }
 
+    close() {
+        this.rtcPeerConnection.close();
+        this.events.dispatchEvent('connectionStateChange', { connectionState: 'closed' });
+    }
+
+    isDoomed() {
+        return this.rtcPeerConnection && (this.rtcPeerConnection.connectionState === 'failed' || this.rtcPeerConnection.connectionState === 'closed');
+    }
+
     // forwardStreamsFromOtherPeers(/**@type MediaStream[] */ remoteStreams) {
     //     //streams.forEach(s => this.remoteStreams.add(s));
     //     for (let remoteStream of remoteStreams) {
