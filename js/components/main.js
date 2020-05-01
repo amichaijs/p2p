@@ -140,13 +140,11 @@ let style = html`
     }
 
     .disconnected::after {
-        content: "Ops...";
+        content: "Oops...";
         position: absolute;
-        top: 0;
-        left: 0;
         width: inherit;
         height: inherit;
-        font-size: 10em;
+        font-size: 7em;
         color: white;
         -webkit-text-stroke: 1px black;
         background: #0000009e;
