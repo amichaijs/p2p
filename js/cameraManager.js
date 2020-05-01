@@ -17,8 +17,11 @@ class CameraManager {
     }
 
     async toggleCamera() {
-        let facingMode = this.facingMode === FacingMode.user ? FacingMode.environment : FacingMode.user;
-        this.setCamera(facingMode);
+        let hasMultipleCameras = await this.checkIfMultipleCameras();
+        if (hasMultipleCameras) {
+            let facingMode = this.facingMode === FacingMode.user ? FacingMode.environment : FacingMode.user;
+            this.setCamera(facingMode);
+        }
     }
  
     async setCamera(facingMode = FacingMode.user) {
@@ -31,7 +34,7 @@ class CameraManager {
 
             this.readyPromise = new Promise(async (resolve, reject) => {
                 try {
-                    let includeAudio = !this.audioTrack
+                    let includeAudio = true;//!this.audioTrack
                     let stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode }, audio: includeAudio });
                     this.stream = stream;
                     setTimeout(() => {
@@ -70,6 +73,20 @@ class CameraManager {
         else {
             throw new Error('no such event');
         }
+    }
+
+    async checkIfMultipleCameras() {
+        let res = false;
+        try {
+            let devices = await navigator.mediaDevices.enumerateDevices();
+            let videoInputs = devices.filter(d => d.kind === "videoinput");
+            res = videoInputs.length > 1;
+        }
+        catch (ex) {
+            logger.error(ex);
+        }
+
+        return res;
     }
 }
 

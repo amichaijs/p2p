@@ -328,16 +328,17 @@ class P2pConnection {
                 this.logger.info('might be adding tracks..')
                 let tracks = stream.getTracks();
 
-                let hasVideoTrack = !!this.local.rtpTracks.video;
                 for (const track of tracks) {
-                    if (hasVideoTrack) {
-                        if (track.kind === 'video') {
+                    if (track.kind === 'video' && this.local.rtpTracks.video) {
                             this.logger.info(`replacing local video track ${this.local.rtpTracks.video.track.id } with ${track.id}`)
                             this.local.rtpTracks.video.replaceTrack(track);
-                        }
+                    }
+                    else if (track.kind === 'audio' && this.local.rtpTracks.audio) {
+                        this.logger.info(`replacing local audio track ${this.local.rtpTracks.audio.track.id } with ${track.id}`)
+                        this.local.rtpTracks.audio.replaceTrack(track);
                     }
                     else {
-                        this.logger.info(`adding local track ${track.id}`);
+                        this.logger.info(`adding local track ${track.id}, kind: ${track.kind}`);
                         let rtpTrack = this.rtcPeerConnection.addTrack(track, stream);
                         this.local.addRtpTrack(rtpTrack);   
                     }
@@ -372,9 +373,14 @@ class P2pConnection {
     async requestRemoteConnectOtherPeer(otherPeerId) {
         this.logger.info(`before send remote request to other peer ${otherPeerId}, waiting data channel`)
         await this.communicationChannelDeferred;
-        let data = { type: PeerMessageType.RequestConnectToOtherPeer, peerId: otherPeerId }
-        this.logger.info(`channel ready, send remote request to other peer ${otherPeerId}`)
-        this.communicationChannel.send(JSON.stringify(data));
+        if (this.isDoomed()) {
+            this.logger.info('never mind - doomed')
+        }
+        else {
+            let data = { type: PeerMessageType.RequestConnectToOtherPeer, peerId: otherPeerId }
+            this.logger.info(`channel ready, send remote request to other peer ${otherPeerId}`)
+            this.communicationChannel.send(JSON.stringify(data));    
+        }
     }
 
     close() {

@@ -441,7 +441,7 @@ class MainComponent extends MdcComponent {
         btnEnableVideo.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getVideoTracks() : [];
             track.enabled = !track.enabled;
-            let icon = track.enabled ? 'videocam' : 'videocam_off' 
+            let icon = track.enabled ? 'videocam_off' : 'videocam';
             btnEnableVideo.setIcon(icon);
         })
 
@@ -453,7 +453,7 @@ class MainComponent extends MdcComponent {
         btnEnableMic.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getAudioTracks() : [];
             track.enabled = !track.enabled;
-            let icon = track.enabled ? 'mic' : 'mic_off' 
+            let icon = track.enabled ?  'mic_off' : 'mic';
             btnEnableMic.setIcon(icon);
         })
     }
