@@ -154,7 +154,7 @@ let style = html`
         align-items: center;
     }
 
-    video.landscape {
+    .landscape video {
         width: 100%;
     }
     
@@ -165,17 +165,17 @@ let style = html`
             height:50%;
         }
 
-        video.portrait {
+        .portrait video {
             width:100%;
         }
 
-        video.landscape {
+        .landscape video {
             object-fit:contain;
         }
     }
 
     @media (orientation:landscape)  {
-        video.portrait {
+        .portrait video {
             height:100%;
         }
     }
@@ -278,13 +278,15 @@ class MainComponent extends MdcComponent {
         //video.muted = true;
         videoElement.autoplay = true;
         videoElement.className = 'remoteVideo';
-        videoElement.addEventListener('loadedmetadata', () => {
-            let className = videoElement.videoWidth < videoElement.videoHeight ? 'portrait' : 'landscape';
-            videoElement.classList.add(className);
-        })
 
         let videoWrapper = document.createElement('div');
         videoWrapper.className = 'remoteVideoWrapper';
+
+        videoElement.addEventListener('loadedmetadata', () => {
+            let className = videoElement.videoWidth < videoElement.videoHeight ? 'portrait' : 'landscape';
+            videoWrapper.classList.add(className);
+        })
+
 
         videoWrapper.appendChild(videoElement);
         this.remoteVideos.push(videoElement);

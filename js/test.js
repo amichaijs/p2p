@@ -20,7 +20,7 @@ window.test = function() {
         let video = document.createElement('video');
         //let video = document.createElement('div');
         video.classList.add('remoteVideo');
-        video.classList.add(portrait ? 'portrait' : 'landscape');
+        videoContainer.classList.add(portrait ? 'portrait' : 'landscape');
         video.autoplay = true;
         video.muted = true;
 
@@ -36,12 +36,28 @@ window.test = function() {
 
     window.addStyle = function() {
         let style = document.createElement('style');
-        style.innerText = 'div.remoteVideoWrapper {  } #remoteVideosContainer {} .remoteVideo {}'
+        style.innerText = `div.remoteVideoWrapper { 
+            width: 100%;
+            height: 100%;
+         } #remoteVideosContainer {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            overflow: scroll;
+         } .remoteVideo {}  .portrait { grid-row: span 2;} .landscape {
+            grid-column: span 2;
+         }`;
         document.querySelector('main-component').elements.main.appendChild(style)   
+        window.s = style;
     }
     
     window.addVideo = addVideo;
     
-    
-        addVideo()
+    addVideo();
+    addVideo(true);
+    addVideo();
+    addVideo(true);
     }
+
+    test();
+    
