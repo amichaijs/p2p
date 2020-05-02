@@ -8,7 +8,7 @@ const FacingMode = {
 
 class CameraManager {
     constructor() {
-        this.facingMode =  FacingMode.user;
+        this.facingMode = null;
         this.stream = null;
         this.readyPromise = null;
         this.listeners = {
@@ -25,7 +25,7 @@ class CameraManager {
     }
  
     async setCamera(facingMode = FacingMode.user) {
-        let changed = !this.stream || this.facingMode !== facingMode
+        let changed = this.facingMode !== facingMode;
         if (changed) {
             this.facingMode = facingMode;
             if (this.stream) {

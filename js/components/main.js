@@ -17,6 +17,7 @@ let template = html`
 <div id="main">
     <div id="welcome">
         <h3 id="welcomeTitle"  class="loading" >Just a moment...</h3>
+        <h5 id="yourId" hidden>Your ID: dsff1f1j2</h5>
         <mdc-button hidden id="btnStart"></mdc-button>
     </div>
     <!-- <log-component id="logComponent"></log-component> -->
@@ -64,8 +65,9 @@ let style = html`
         height:100%;
     }
 
-    #welcomeTitle {
-        margin-bottom: 40px;
+    #yourId {
+        margin-bottom:30px;
+        margin-top:20px;
     }
 
     #logComponent {
@@ -244,7 +246,7 @@ class MainComponent extends MdcComponent {
 
         if (this.isFromInvite()) {
             welcomeTitle = 'You got a call!';
-            welcomeBtnTitle = 'Answer!'
+            welcomeBtnTitle = 'Join!'
             buttonListener = () => this.connectPeer();
         }
         else {
@@ -255,8 +257,10 @@ class MainComponent extends MdcComponent {
 
         this.elements.welcomeTitle.classList.remove('fail');
         this.elements.welcomeTitle.classList.remove('loading');
-        this.elements.welcomeTitle.setValue(welcomeTitle)
-        this.elements.btnStart.setValue(welcomeBtnTitle)
+        this.elements.welcomeTitle.setValue(welcomeTitle);
+        this.elements.yourId.innerText = `Your ID: ${this.localId}`;
+        this.elements.yourId.hidden = false;
+        this.elements.btnStart.setValue(welcomeBtnTitle);
 
         this.elements.btnStart.addEventListener("click", buttonListener);
         this.elements.btnStart.hidden = false;
@@ -267,7 +271,7 @@ class MainComponent extends MdcComponent {
     }
 
     async addPeerLinkToClipboard() {
-        this.tryFullScreen();
+        //this.tryFullScreen();
         let url = `${window.location.href.split("?")[0]}?id=${this.localId}`
         navigator.clipboard.writeText(url).catch(logger.error);
         this.elements.btnStart.setValue('Copied!')
@@ -437,7 +441,7 @@ class MainComponent extends MdcComponent {
 
     initBtnEnableVideo() {
         let btnEnableVideo = this.elements.btnEnableVideo;
-        btnEnableVideo.setIcon('videocam');
+        btnEnableVideo.setIcon('videocam_off');
         btnEnableVideo.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getVideoTracks() : [];
             track.enabled = !track.enabled;
@@ -449,7 +453,7 @@ class MainComponent extends MdcComponent {
 
     initBtnEnableMic() {
         let btnEnableMic = this.elements.btnEnableMic;
-        btnEnableMic.setIcon('mic');
+        btnEnableMic.setIcon('mic_off');
         btnEnableMic.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getAudioTracks() : [];
             track.enabled = !track.enabled;
@@ -473,7 +477,7 @@ class MainComponent extends MdcComponent {
                     this.p2pManager.setLocalStream(this.displayStream);
                 }
 
-                let icon = this.displayStream ? 'screen_share' : 'stop_screen_share' ;
+                let icon = this.displayStream ? 'stop_screen_share' : 'screen_share';
                 btnEnableScreenShare.setIcon(icon);
             })
         }

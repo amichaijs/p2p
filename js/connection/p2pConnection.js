@@ -330,8 +330,8 @@ class P2pConnection {
 
                 for (const track of tracks) {
                     if (track.kind === 'video' && this.local.rtpTracks.video) {
-                            this.logger.info(`replacing local video track ${this.local.rtpTracks.video.track.id } with ${track.id}`)
-                            this.local.rtpTracks.video.replaceTrack(track);
+                        this.logger.info(`replacing local video track ${this.local.rtpTracks.video.track.id } with ${track.id}`)
+                        this.local.rtpTracks.video.replaceTrack(track);
                     }
                     else if (track.kind === 'audio' && this.local.rtpTracks.audio) {
                         this.logger.info(`replacing local audio track ${this.local.rtpTracks.audio.track.id } with ${track.id}`)
@@ -375,6 +375,9 @@ class P2pConnection {
         await this.communicationChannelDeferred;
         if (this.isDoomed()) {
             this.logger.info('never mind - doomed')
+        }
+        else if (this.communicationChannel.readyState !== "open") {
+            this.logger.info(`communication channel is dead or not ready yet: ${this.communicationChannel.readyState}`);
         }
         else {
             let data = { type: PeerMessageType.RequestConnectToOtherPeer, peerId: otherPeerId }
