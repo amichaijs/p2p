@@ -54,6 +54,9 @@ class P2pManager {
         }
         catch (ex) {
             logger.error(ex);
+            if (p2pConnection) {
+                p2pConnection.close();
+            }
             throw (ex);
         }
 

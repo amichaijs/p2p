@@ -361,8 +361,7 @@ class MainComponent extends MdcComponent {
         }
 
         cameraManager.on('cameraChange', () => {
-            this.p2pManager.setLocalStream(cameraManager.stream);
-            this.elements.localVideo.srcObject = cameraManager.stream;
+            this.setLocalStream(cameraManager.stream);
         })
     }
 
@@ -441,11 +440,11 @@ class MainComponent extends MdcComponent {
 
     initBtnEnableVideo() {
         let btnEnableVideo = this.elements.btnEnableVideo;
-        btnEnableVideo.setIcon('videocam_off');
+        btnEnableVideo.setIcon('videocam');
         btnEnableVideo.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getVideoTracks() : [];
             track.enabled = !track.enabled;
-            let icon = track.enabled ? 'videocam_off' : 'videocam';
+            let icon = track.enabled ? 'videocam' : 'videocam_off';
             btnEnableVideo.setIcon(icon);
         })
 
@@ -453,11 +452,11 @@ class MainComponent extends MdcComponent {
 
     initBtnEnableMic() {
         let btnEnableMic = this.elements.btnEnableMic;
-        btnEnableMic.setIcon('mic_off');
+        btnEnableMic.setIcon('mic');
         btnEnableMic.addEventListener('click', () => {
             let [track] = cameraManager.stream ? cameraManager.stream.getAudioTracks() : [];
             track.enabled = !track.enabled;
-            let icon = track.enabled ?  'mic_off' : 'mic';
+            let icon = track.enabled ? 'mic' : 'mic_off';
             btnEnableMic.setIcon(icon);
         })
     }
@@ -470,11 +469,11 @@ class MainComponent extends MdcComponent {
                 if (this.displayStream) {
                     this.displayStream.getTracks().forEach(t => t.stop());
                     this.displayStream = null;
-                    this.p2pManager.setLocalStream(cameraManager.stream);
+                    this.setLocalStream(cameraManager.stream);
                 }
                 else {
                     this.displayStream = await navigator.mediaDevices.getDisplayMedia();
-                    this.p2pManager.setLocalStream(this.displayStream);
+                    this.setLocalStream(this.displayStream);
                 }
 
                 let icon = this.displayStream ? 'stop_screen_share' : 'screen_share';
@@ -503,6 +502,11 @@ class MainComponent extends MdcComponent {
             let icon = document.fullscreen ? 'fullscreen_exit' : 'fullscreen';
             btnEnableFullScreen.setIcon(icon);
         })
+    }
+
+    setLocalStream(stream) {
+        this.p2pManager.setLocalStream(stream);
+        this.elements.localVideo.srcObject = stream;
     }
 }
 

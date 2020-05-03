@@ -387,8 +387,14 @@ class P2pConnection {
     }
 
     close() {
-        this.rtcPeerConnection.close();
-        this.events.dispatchEvent('connectionStateChange', { connectionState: 'closed' });
+        try {
+            this.logger.info('closing connection..');
+            this.rtcPeerConnection.close();
+            this.events.dispatchEvent('connectionStateChange', { connectionState: 'closed' });
+        }
+        catch (ex) {
+            this.logger.error(ex);
+        }
     }
 
     isDoomed() {
