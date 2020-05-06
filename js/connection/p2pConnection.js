@@ -192,7 +192,7 @@ class P2pConnection {
     async initConnection() {
         let iceServers =
             [
-                { urls: "stun:stun4.l.google.com:19302" },
+                // { urls: "stun:stun4.l.google.com:19302" },
                 {
                     url: 'turn:numb.viagenie.ca',
                     credential: 'muazkh',
