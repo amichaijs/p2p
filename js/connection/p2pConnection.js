@@ -49,6 +49,7 @@ class P2pConnection {
         this.remoteStreams = new Set();
         this.useIceNegotiation = true;
         this.isOfferer = false;
+        this.candidates = [];
 
     }
 
@@ -232,16 +233,18 @@ class P2pConnection {
             }
             else if (this.negotiating) {
                 this.logger.info('already negotiating');
-
+            }
+            else if (this.rtcPeerConnection.iceConnectionState === "connected") {
+                this.logger.info('onnegotiationneeded : already connected'); // might need another flag in case i do need renegotiation
             }
             else {
-                await this.negotiate();
+               await this.negotiate();
                 this.useIceNegotiation = true;
             }
         }
 
         rtcPeerConnection.ondatachannel = e => {
-            this.logger.info('ondatachannel');
+            this.logger.info(`ondatachannel ${e.channel}`);
             switch (e.channel.id) {
                 case DataChannels.Communication:
                     this.setCommunicationChannel(e.channel);
@@ -251,7 +254,7 @@ class P2pConnection {
         };
 
         rtcPeerConnection.oniceconnectionstatechange = e => {
-            this.logger.info(rtcPeerConnection.iceConnectionState);
+            this.logger.info(`oniceconnectionstatechange ${rtcPeerConnection.iceConnectionState}`);
             if (this.rtcPeerConnection.iceConnectionState === 'disconnected') {
                 // if (this.remote.stream) {
                 //     this.logger.info('remove existing stream from conference')
@@ -271,7 +274,10 @@ class P2pConnection {
             }
         }
 
-        rtcPeerConnection.onsignalingstatechange = () => this.negotiating = this.rtcPeerConnection.signalingState != "stable";
+        rtcPeerConnection.onsignalingstatechange = () =>  {
+            this.logger.info(`onsignalingstatechange ${this.rtcPeerConnection.signalingState}`)
+            this.negotiating = this.rtcPeerConnection.signalingState != "stable";
+        }
 
         rtcPeerConnection.onconnectionstatechange = ev => {
             this.logger.info(`onconnectionstatechange: ${this.rtcPeerConnection.connectionState}`);
@@ -300,10 +306,18 @@ class P2pConnection {
     addIceCandidate(rtcPeerConnection) {
         return new Promise((resolve, reject) => {
             rtcPeerConnection.onicecandidate = e => {
-                this.logger.info(`e.candidate ${JSON.stringify(e.candidate)}`)
+                this.logger.info(`e.candidate ${JSON.stringify(e.candidate)}, candidates before ${this.candidates.length}`);
+                this.candidates.push(e.candidate);
+
                 try {
                     if (!e.candidate) {
                         resolve();
+                        /*if (this.rtcPeerConnection.iceConnectionState === "connected") {
+                            resolve();
+                        }
+                        else {
+                            reject(`finished ice negotiation, but status iceConnectionState ${this.rtcPeerConnection.iceConnectionState} and not 'connected'`)
+                        }*/
                     }
                 }
                 catch (ex) {

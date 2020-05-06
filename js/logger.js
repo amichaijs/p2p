@@ -22,7 +22,9 @@ class Logger {
     }
     info(msg) {
         let time = getTimeString();
-        console.info(time, this.name, msg);
+        console.groupCollapsed(time, this.name, msg)
+        console.trace();
+        console.groupEnd();
         this._log(msg, 'info', time);
     }
     warn(msg) {
